@@ -2,8 +2,13 @@
 
 import pytest
 
-# Test the client-side filtering functionality directly since it doesn't require Google dependencies
-from mcp_handley_lab.google_calendar.tool import _client_side_filter
+from mcp_handley_lab.google_calendar.tool import (
+    CompactCalendarEvent,
+    _build_compact_event,
+    _client_side_filter,
+    _normalize_text,
+    _term_threshold,
+)
 
 
 class TestClientSideFilter:
@@ -151,9 +156,80 @@ class TestClientSideFilter:
 
         # Search in description field with missing descriptions
         filtered = _client_side_filter(
-            events_with_missing, search_text="everything", search_fields=["description"]
+            events_with_missing,
+            search_text="everything",
+            search_fields=["description"],
         )
         assert len(filtered) == 1  # Only first event has description with "everything"
+
+    def test_fuzzy_matching(self):
+        """Test fuzzy matching: typos, accents, punctuation, morphology."""
+        events = [
+            {"summary": "Examiners meeting", "description": "Board review"},
+            {"summary": "Follow-up call", "description": "Client check-in"},
+            {"summary": "Café discussion", "description": "Informal chat"},
+            {"summary": "Team Meeting", "description": "Weekly sync"},
+        ]
+
+        # "examiner" should match "Examiners meeting" via fuzzy matching
+        filtered = _client_side_filter(events, search_text="examiner")
+        assert len(filtered) >= 1
+        assert any(e["summary"] == "Examiners meeting" for e in filtered)
+
+        # "followup" should match "Follow-up call" via punctuation normalization
+        filtered = _client_side_filter(events, search_text="followup")
+        assert len(filtered) >= 1
+        assert any(e["summary"] == "Follow-up call" for e in filtered)
+
+        # "cafe" should match "Café discussion" via Unicode normalization
+        filtered = _client_side_filter(events, search_text="cafe")
+        assert len(filtered) >= 1
+        assert any(e["summary"] == "Café discussion" for e in filtered)
+
+        # "meting" should match "Team Meeting" via typo tolerance
+        filtered = _client_side_filter(events, search_text="meting")
+        assert len(filtered) >= 1
+        assert any("Meeting" in e["summary"] for e in filtered)
+
+    def test_word_order(self):
+        """Test that word order doesn't matter for multi-term queries."""
+        events = [
+            {"summary": "Lunch with Bob", "description": "Casual catch-up"},
+        ]
+
+        filtered = _client_side_filter(events, search_text="bob lunch")
+        assert len(filtered) == 1
+
+    def test_empty_search_fields_defaults(self):
+        """Test that search_fields=[] behaves like None (uses defaults)."""
+        events = [
+            {"summary": "Team Meeting", "description": "Weekly sync"},
+        ]
+
+        filtered_none = _client_side_filter(
+            events, search_text="team", search_fields=None
+        )
+        filtered_empty = _client_side_filter(
+            events, search_text="team", search_fields=[]
+        )
+        assert filtered_none == filtered_empty
+        assert len(filtered_none) == 1
+
+    def test_short_term_matching(self):
+        """Test short term behavior with partial_ratio."""
+        events = [
+            {"summary": "Air travel plans", "description": "Flight booking"},
+            {"summary": "AI Workshop", "description": "Machine learning"},
+            {"summary": "Lunch", "description": "Team lunch"},
+        ]
+
+        # Short terms (1-2 chars) match broadly via substring with partial_ratio
+        # "AI" matches both "AI Workshop" (exact) and "Air" (substring)
+        filtered = _client_side_filter(events, search_text="AI")
+        assert any(e["summary"] == "AI Workshop" for e in filtered)
+
+        # But unrelated events should not match
+        assert not any(e["summary"] == "Lunch" for e in filtered)
 
 
 class TestSearchParameterValidation:
@@ -231,6 +307,113 @@ class TestSearchParameterValidation:
             events, search_text="room 101", search_fields=["location"]
         )
         assert len(filtered) == 1
+
+
+class TestNormalizeText:
+    """Test text normalization."""
+
+    def test_casefold(self):
+        """Test case folding (default)."""
+        assert _normalize_text("HELLO World") == "hello world"
+
+    def test_case_sensitive(self):
+        """Test that case_sensitive=True preserves case."""
+        assert _normalize_text("HELLO World", case_sensitive=True) == "HELLO World"
+
+    def test_unicode_normalization(self):
+        """Test NFKD normalization strips accents."""
+        assert _normalize_text("café") == "cafe"
+        assert _normalize_text("naïve") == "naive"
+        assert _normalize_text("résumé") == "resume"
+
+    def test_punctuation_normalization(self):
+        """Test punctuation is normalized to spaces."""
+        assert _normalize_text("follow-up") == "follow up"
+        assert _normalize_text("it's") == "it s"
+        assert _normalize_text("path/to/file") == "path to file"
+
+    def test_whitespace_collapse(self):
+        """Test multiple spaces are collapsed."""
+        assert _normalize_text("  hello   world  ") == "hello world"
+
+    def test_empty(self):
+        """Test empty input."""
+        assert _normalize_text("") == ""
+
+
+class TestTermThreshold:
+    """Test dynamic threshold for fuzzy matching."""
+
+    def test_short_terms_strict(self):
+        assert _term_threshold(1) == 95
+        assert _term_threshold(2) == 95
+
+    def test_medium_terms(self):
+        assert _term_threshold(3) == 90
+        assert _term_threshold(4) == 90
+
+    def test_longer_terms(self):
+        assert _term_threshold(5) == 85
+        assert _term_threshold(7) == 85
+
+    def test_long_terms(self):
+        assert _term_threshold(8) == 80
+        assert _term_threshold(12) == 80
+
+    def test_very_long_terms(self):
+        assert _term_threshold(13) == 75
+        assert _term_threshold(20) == 75
+
+
+class TestCompactMode:
+    """Test compact event model and builder."""
+
+    def test_build_compact_event(self):
+        """Test _build_compact_event produces CompactCalendarEvent."""
+        event_data = {
+            "id": "abc123",
+            "summary": "Test Event",
+            "description": "Should not appear in compact",
+            "location": "Somewhere",
+            "start": {"dateTime": "2026-03-03T10:00:00+00:00", "timeZone": "UTC"},
+            "end": {"dateTime": "2026-03-03T11:00:00+00:00", "timeZone": "UTC"},
+            "attendees": [{"email": "test@example.com"}],
+            "calendar_name": "Primary",
+        }
+
+        result = _build_compact_event(event_data)
+        assert isinstance(result, CompactCalendarEvent)
+        assert result.id == "abc123"
+        assert result.summary == "Test Event"
+        assert result.calendar_name == "Primary"
+        assert result.start.dateTime == "2026-03-03T10:00:00+00:00"
+        assert result.end.dateTime == "2026-03-03T11:00:00+00:00"
+
+        # Compact model should NOT have description, location, attendees
+        assert not hasattr(result, "description")
+        assert not hasattr(result, "location")
+        assert (
+            not hasattr(result, "attendees") or "attendees" not in result.model_fields
+        )
+
+    def test_compact_datetime_normalization(self):
+        """Test that compact builder applies the same datetime normalization."""
+        event_data = {
+            "id": "abc123",
+            "summary": "BST Event",
+            "start": {"dateTime": "2026-06-15T09:00:00Z", "timeZone": "Europe/London"},
+            "end": {"dateTime": "2026-06-15T10:00:00Z", "timeZone": "Europe/London"},
+        }
+
+        result = _build_compact_event(event_data)
+        # UTC 09:00 in BST (UTC+1) should become 10:00+01:00
+        assert "10:00:00+01:00" in result.start.dateTime
+        assert result.start.timeZone == "Europe/London"
+
+    def test_compact_model_fields(self):
+        """Test that CompactCalendarEvent has exactly the expected fields."""
+        fields = set(CompactCalendarEvent.model_fields.keys())
+        assert fields == {"id", "summary", "start", "end", "calendar_name"}
 
 
 if __name__ == "__main__":

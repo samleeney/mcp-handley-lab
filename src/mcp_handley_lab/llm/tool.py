@@ -15,13 +15,14 @@ from mcp.types import TextContent
 from pydantic import Field
 
 from mcp_handley_lab.common.pricing import calculate_cost
+from mcp_handley_lab.common.process import run_command
 from mcp_handley_lab.llm.common import load_prompt_text
 from mcp_handley_lab.llm.registry import (
     get_adapter,
     list_all_models,
     resolve_model,
-    validate_options,
 )
+from mcp_handley_lab.llm.shared import chat as _chat
 from mcp_handley_lab.llm.shared import conversation as _conversation
 from mcp_handley_lab.llm.shared import process_llm_request, resolve_generation_adapter
 from mcp_handley_lab.shared.models import LLMResult  # noqa: F401 - used in type hints
@@ -142,34 +143,22 @@ def chat(
     ),
 ) -> LLMResult:
     """Send a message to an LLM with automatic provider detection."""
-    provider, canonical_model, config = resolve_model(model)
-    validate_options(provider, model, config, options)
-    resolved_branch = _resolve_session_branch(branch)
-    generation_func = resolve_generation_adapter(provider, config, images)
-
-    kwargs: dict[str, Any] = {
-        "prompt_file": prompt_file or None,
-        "prompt_vars": prompt_vars or None,
-        "temperature": temperature,
-        "files": files,
-        "system_prompt": system_prompt or None,
-        "system_prompt_file": system_prompt_file or None,
-        "system_prompt_vars": system_prompt_vars or None,
-        "options": options,
-    }
-    if images:
-        kwargs["images"] = images
-        kwargs["focus"] = focus
-
-    return process_llm_request(
+    return _chat(
         prompt=prompt or None,
+        prompt_file=prompt_file or None,
+        prompt_vars=prompt_vars or None,
         output_file=output_file,
-        branch=resolved_branch,
-        model=canonical_model,
-        provider=provider,
-        generation_func=generation_func,
+        branch=_resolve_session_branch(branch),
+        model=model,
+        temperature=temperature,
+        files=files,
+        images=images,
+        focus=focus,
+        system_prompt=system_prompt or None,
+        system_prompt_file=system_prompt_file or None,
+        system_prompt_vars=system_prompt_vars or None,
+        options=options,
         from_ref=from_ref or None,
-        **kwargs,
     )
 
 
@@ -221,6 +210,131 @@ def conversation(
         force=force,
         output_file=output_file,
     )
+
+
+REVIEW_SYSTEM_PROMPT = (
+    "You are a reviewer. Assess the provided materials (code, plans, "
+    "specifications, diffs) based on the user's instructions. "
+    "Be specific: reference file paths, line numbers, and section names. "
+    "When a plan is provided, treat it as proposed future work — evaluate "
+    "feasibility and correctness, do not flag unimplemented plan items as "
+    "code defects. "
+    "If you cannot make a decision because relevant context is missing, "
+    "state NEEDS MORE CODE and list the specific files or modules you need to see. "
+    "If no blocking issues remain, state APPROVED. "
+    "Otherwise, list required fixes with specific locations."
+)
+
+DEFAULT_REVIEW_PROMPT = (
+    "Review the provided materials. "
+    "Check quality, completeness, and readiness to proceed."
+)
+
+
+@mcp.tool(
+    description="Review code or plans with an external LLM. Runs code2prompt internally "
+    "(with --line-numbers) on the specified path, then sends the summary + "
+    "plan + any extra files to the LLM for review. "
+    "Use 'prompt' to steer the review (e.g., plan review, security audit, "
+    "spec compliance). When 'prompt' is provided, it replaces the default "
+    "user prompt entirely. When a plan file is provided, the reviewer treats "
+    "it as proposed future work and will not flag unimplemented items as defects. "
+    "Returns: {content, usage, branch, commit_sha}."
+)
+def review(
+    path: str = Field(
+        default=".",
+        description="Path to the codebase directory to review. "
+        "Use absolute path when calling from a different working directory.",
+    ),
+    plan: str = Field(
+        default="",
+        description="Path to plan/specification file to review against. "
+        "Strongly recommended so the reviewer has a spec to assess compliance.",
+    ),
+    prompt: str = Field(
+        default="",
+        description="Replaces the default user prompt. Use to steer the review "
+        "(e.g., 'Review this plan against the codebase', 'Focus on security'). "
+        "Leave empty for standard review.",
+    ),
+    model: str = Field(
+        default="openai",
+        description="Model or provider name for the reviewer.",
+    ),
+    branch: str = Field(
+        default="session",
+        description="Conversation branch for multi-round reviews. "
+        "'session' auto-scopes to client.",
+    ),
+    include: list[str] = Field(
+        default_factory=list,
+        description="Glob patterns for code2prompt include (e.g., '*.py').",
+    ),
+    exclude: list[str] = Field(
+        default_factory=list,
+        description="Glob patterns for code2prompt exclude (e.g., '*_test.py').",
+    ),
+    files: list[str] = Field(
+        default_factory=list,
+        description="Additional context files (e.g., CLAUDE.md).",
+    ),
+    output_file: str = Field(
+        default="",
+        description="File path to save the review response.",
+    ),
+    diff: bool = Field(
+        default=False,
+        description="Use git diff mode instead of full codebase scan.",
+    ),
+) -> LLMResult:
+    """Review code by running code2prompt and sending to an LLM."""
+    import tempfile
+
+    if plan:
+        plan = str(Path(plan).expanduser())
+    files = [str(Path(f).expanduser()) for f in files if f]
+    if output_file:
+        output_file = str(Path(output_file).expanduser())
+
+    fd, c2p_output = tempfile.mkstemp(suffix=".md", prefix="review_")
+    os.close(fd)
+
+    try:
+        args = [
+            str(Path(path).expanduser()),
+            "--output-file",
+            c2p_output,
+            "--line-numbers",
+        ]
+        for pat in include:
+            args.extend(["--include", pat])
+        for pat in exclude:
+            args.extend(["--exclude", pat])
+        if diff:
+            args.append("--diff")
+
+        run_command(["code2prompt"] + args, timeout=120)
+
+        all_files = [c2p_output] + ([plan] if plan else []) + files
+        final_prompt = prompt if prompt else DEFAULT_REVIEW_PROMPT
+
+        provider, canonical_model, config = resolve_model(model)
+        resolved_branch = _resolve_session_branch(branch)
+        generation_func = resolve_generation_adapter(provider, config)
+
+        return process_llm_request(
+            prompt=final_prompt,
+            output_file=output_file,
+            branch=resolved_branch,
+            model=canonical_model,
+            provider=provider,
+            generation_func=generation_func,
+            files=all_files,
+            system_prompt=REVIEW_SYSTEM_PROMPT,
+        )
+    finally:
+        Path(c2p_output).unlink(missing_ok=True)
 
 
 @mcp.tool(
@@ -383,19 +497,14 @@ def transcribe(
     ),
 ) -> dict[str, Any]:
     """Transcribe audio using Groq Whisper."""
-    adapter = get_adapter("groq", "audio_transcription")
-    result = adapter(
+    from mcp_handley_lab.llm.shared import transcribe as _transcribe
+
+    return _transcribe(
         audio_path=audio_path,
+        output_file=output_file,
         language=language,
         include_timestamps=include_timestamps,
     )
-
-    if output_file:
-        output_path = Path(output_file)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(json.dumps(result, indent=2))
-
-    return result
 
 
 @mcp.tool(
@@ -418,28 +527,13 @@ def ocr(
     ),
 ) -> dict[str, Any]:
     """Process document with Mistral OCR for text extraction."""
-    adapter = get_adapter("mistral", "ocr")
-    result = adapter(document_path, include_images)
+    from mcp_handley_lab.llm.shared import ocr as _ocr
 
-    pages = result.get("pages", [])
-    response: dict[str, Any] = {
-        "status": "success",
-        "pages": len(pages),
-        "message": f"OCR complete. {len(pages)} page(s) extracted.",
-    }
-
-    if output_file:
-        output_path = Path(output_file)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(json.dumps(result, indent=2))
-        response["output_file"] = output_file
-        response["message"] += f" Full results saved to {output_file}"
-    else:
-        response["text"] = "\n\n".join(
-            page.get("markdown", page.get("text", "")) for page in pages
-        )
-
-    return response
+    return _ocr(
+        document_path=document_path,
+        output_file=output_file,
+        include_images=include_images,
+    )
 
 
 @mcp.tool(

@@ -1,7 +1,9 @@
 """Loop backends - TmuxBackend for terminal-based REPLs, ClaudeBackend for Claude Code."""
 
+import contextlib
 import json
 import os
+import queue
 import re
 import signal
 import subprocess
@@ -113,6 +115,14 @@ def get_backend(name: str) -> Any:
         return GeminiBackend()
     if name == "openai":
         return OpenAIBackend()
+    if name.startswith("jupyter"):
+        kernel_map = {
+            "jupyter": "python3",
+            "jupyter-python": "python3",
+            "jupyter-julia": "julia",
+            "jupyter-r": "ir",
+        }
+        return JupyterBackend(default_kernel=kernel_map.get(name, "python3"))
     if name in BACKENDS:
         return TmuxBackend(BACKENDS[name])
     raise NotImplementedError(f"backend '{name}' not implemented")
@@ -331,23 +341,22 @@ class TmuxBackend:
             # Prepend venv bin to PATH and set VIRTUAL_ENV
             clean_path = f"{venv_path}/bin:{clean_path}"
 
-        env_cmd = [
-            "env",
-            "-u",
-            "PYTHONPATH",
-            f"PATH={clean_path}",
-        ]
+        # All -u flags must come before NAME=VALUE assignments (POSIX env requirement)
+        unset_vars = ["PYTHONPATH"]
+        if not venv_path:
+            unset_vars.append("VIRTUAL_ENV")
 
-        # Set VIRTUAL_ENV if using venv, otherwise unset it
+        set_vars = [f"PATH={clean_path}"]
         if venv_path:
-            env_cmd.append(f"VIRTUAL_ENV={venv_path}")
-        else:
-            env_cmd.extend(["-u", "VIRTUAL_ENV"])
-
-        # Inject loop env vars for client library
+            set_vars.append(f"VIRTUAL_ENV={venv_path}")
         if socket_path:
-            env_cmd.append(f"MCP_LOOP_SOCKET={socket_path}")
-            env_cmd.append(f"MCP_LOOP_PARENT_ID={loop_id}")
+            set_vars.append(f"MCP_LOOP_SOCKET={socket_path}")
+            set_vars.append(f"MCP_LOOP_PARENT_ID={loop_id}")
+
+        env_cmd = ["env"]
+        for var in unset_vars:
+            env_cmd.extend(["-u", var])
+        env_cmd.extend(set_vars)
 
         command = env_cmd + base_command
         window_name = f"{label}-{loop_id}"
@@ -770,7 +779,9 @@ class ClaudeBackend(LLMBackend):
                     "cell_index": cell_index,
                     "session_id": state.get("session_id", ""),
                     "usage": result.get("usage", {}) if result else {},
-                    "total_cost_usd": result.get("total_cost_usd", 0.0) if result else 0.0,
+                    "total_cost_usd": result.get("total_cost_usd", 0.0)
+                    if result
+                    else 0.0,
                     "num_turns": result.get("num_turns", 0) if result else 0,
                 }
         finally:
@@ -1121,3 +1132,437 @@ class OpenAIBackend(LLMBackend):
                     state["current_input"] = ""
                     state["current_output_parts"] = []
                     state["current_events"] = []
+
+
+class JupyterBackend(LLMBackend):
+    """Backend using Jupyter kernels for structured code execution.
+
+    Uses jupyter_client to communicate with Jupyter kernels (Python, Julia, R, etc.)
+    via the Jupyter messaging protocol. Provides clean JSON-based completion detection
+    without terminal scraping or ANSI stripping.
+    """
+
+    EVAL_TIMEOUT = 300  # Wall-clock timeout for eval in seconds
+    MAX_EVENTS = 1000
+    MAX_DATA_LEN = 10000
+    # Mimetypes that are always omitted from event storage (binary/large payloads)
+    _OMIT_MIMES = frozenset(
+        {
+            "image/png",
+            "image/jpeg",
+            "image/gif",
+            "image/svg+xml",
+            "application/pdf",
+            "application/json",
+        }
+    )
+
+    def __init__(self, default_kernel: str = "python3"):
+        super().__init__()
+        self._default_kernel = default_kernel
+
+    def spawn(
+        self,
+        label: str,
+        name: str | None,
+        args: str | None,
+        child_allowed_tools: list[str],
+        socket_path: str = "",
+        venv: str = "",
+        cwd: str = "",
+        prompt: str = "",
+        *,
+        sandbox: dict[str, list[str]] | None = None,
+        session_id: str = "",
+    ) -> tuple[str, str]:
+        """Spawn a new Jupyter kernel. Returns (loop_id, loop_id).
+
+        Args:
+            label: Human-readable label
+            name: Optional name suffix for loop_id
+            args: Extra arguments (supports --kernel <name>)
+            child_allowed_tools: Unused (Jupyter kernels don't have tool access)
+            socket_path: Daemon socket path to inject as MCP_LOOP_SOCKET
+            venv: Not supported for jupyter (raises error if provided)
+            cwd: Working directory for the kernel
+            prompt: Unused (Jupyter kernels don't have system prompts)
+            sandbox: Not supported for jupyter (raises error if provided)
+            session_id: Unused
+        """
+        import shlex
+
+        from jupyter_client import KernelManager
+        from jupyter_client.kernelspec import KernelSpecManager
+
+        if sandbox:
+            raise ValueError("sandbox is not supported for jupyter backends")
+        if venv:
+            raise ValueError("venv is not supported for jupyter backends")
+
+        timestamp = datetime.now().strftime("%H%M%S")
+        loop_id = f"jupyter-{name or timestamp}"
+
+        # Parse --kernel from args
+        kernel_name = self._default_kernel
+        if args:
+            arg_list = shlex.split(args)
+            for i, arg in enumerate(arg_list):
+                if arg == "--kernel" and i + 1 < len(arg_list):
+                    kernel_name = arg_list[i + 1]
+                elif arg.startswith("--kernel="):
+                    kernel_name = arg.split("=", 1)[1]
+
+        km = KernelManager(kernel_name=kernel_name)
+        kc = None
+        try:
+            # Build env with loop socket info
+            env = dict(os.environ)
+            if socket_path:
+                env["MCP_LOOP_SOCKET"] = socket_path
+                env["MCP_LOOP_PARENT_ID"] = loop_id
+
+            km.start_kernel(cwd=cwd or None, env=env)
+            kc = km.client()
+            kc.start_channels()
+            kc.wait_for_ready(timeout=60)
+
+            # Drain startup chatter from iopub
+            deadline = time.time() + 1.0
+            while time.time() < deadline:
+                try:
+                    kc.get_iopub_msg(timeout=0.1)
+                except queue.Empty:
+                    break
+
+        except Exception as e:
+            if kc is not None:
+                with contextlib.suppress(Exception):
+                    kc.stop_channels()
+                if hasattr(kc, "close"):
+                    with contextlib.suppress(Exception):
+                        kc.close()
+            with contextlib.suppress(Exception):
+                km.shutdown_kernel(now=True)
+            if hasattr(km, "cleanup_resources"):
+                with contextlib.suppress(Exception):
+                    km.cleanup_resources()
+            # List available kernels in error message
+            try:
+                specs = KernelSpecManager().find_kernel_specs()
+                available = ", ".join(sorted(specs.keys()))
+            except Exception:
+                available = "(could not list)"
+            raise RuntimeError(
+                f"Failed to start jupyter kernel '{kernel_name}': {e}. "
+                f"Available kernels: {available}"
+            ) from e
+
+        with self._lock:
+            self._state[loop_id] = {
+                "km": km,
+                "kc": kc,
+                "cells": [],
+                "current_input": "",
+                "current_output_parts": [],
+                "current_events": [],
+            }
+
+        return loop_id, loop_id
+
+    def eval(
+        self, pane_id: str, code: str, check_cancelled: Callable[[], bool]
+    ) -> dict[str, Any]:
+        """Execute code in Jupyter kernel and wait for completion."""
+        with self._lock:
+            state = self._state.get(pane_id)
+            if not state:
+                raise RuntimeError(f"Jupyter session not found: {pane_id}")
+            kc = state["kc"]
+            km = state["km"]
+            base_cell_index = len(state["cells"])
+            state["current_input"] = code
+            state["current_output_parts"] = []
+            state["current_events"] = []
+            state["stdin_handled"] = False
+
+        msg_id = kc.execute(code, allow_stdin=False)
+        saw_matching_msg = False
+        suffix = ""  # Appended to output on non-normal exit
+        start = time.time()
+
+        try:
+            while True:
+                # Check state still exists (kill during eval)
+                with self._lock:
+                    if pane_id not in self._state:
+                        return {"output": "[killed]", "cell_index": base_cell_index}
+
+                # Check cancellation every iteration (not only on queue.Empty)
+                if check_cancelled():
+                    km.interrupt_kernel()
+                    self._drain_until_idle(kc, msg_id, state, pane_id)
+                    suffix = "[cancelled]"
+                    break
+
+                # Check wall-clock timeout every iteration
+                if time.time() - start > self.EVAL_TIMEOUT:
+                    km.interrupt_kernel()
+                    self._drain_until_idle(kc, msg_id, state, pane_id)
+                    suffix = "[timed out]"
+                    break
+
+                # Poll stdin every iteration (kernel may block waiting for input
+                # even when no iopub messages arrive)
+                with self._lock:
+                    stdin_handled = state.get("stdin_handled", False)
+                if not stdin_handled:
+                    self._poll_stdin(kc, km, state, pane_id)
+
+                # Check kernel alive
+                if not km.is_alive():
+                    suffix = "[kernel died]"
+                    break
+
+                # Poll iopub for output messages
+                try:
+                    msg = kc.get_iopub_msg(timeout=0.2)
+                except queue.Empty:
+                    continue
+
+                # Filter by parent msg_id
+                parent_id = msg.get("parent_header", {}).get("msg_id")
+                if parent_id != msg_id:
+                    # Accept unparented status:idle if we've seen matching msgs
+                    if (
+                        saw_matching_msg
+                        and not parent_id
+                        and msg.get("msg_type") == "status"
+                        and msg.get("content", {}).get("execution_state") == "idle"
+                    ):
+                        break
+                    continue
+
+                saw_matching_msg = True
+                self._process_iopub_msg(msg, state, pane_id)
+
+                if (
+                    msg.get("msg_type") == "status"
+                    and msg.get("content", {}).get("execution_state") == "idle"
+                ):
+                    break
+
+            # Finalize cell (all exit paths: normal, cancelled, timed out, kernel died)
+            dead_state = None
+            with self._lock:
+                if pane_id not in self._state:
+                    return {"output": "[killed]", "cell_index": base_cell_index}
+                output = "".join(state["current_output_parts"])
+                if suffix:
+                    if output:
+                        output += "\n"
+                    output += suffix
+                cell_index = len(state["cells"])
+                state["cells"].append(
+                    {
+                        "index": cell_index,
+                        "input": code,
+                        "output": output,
+                        "events": list(state["current_events"]),
+                    }
+                )
+
+                # Auto-cleanup on kernel death (pop under lock, cleanup outside)
+                if suffix == "[kernel died]":
+                    dead_state = self._state.pop(pane_id, None)
+
+            # Cleanup outside the lock
+            if dead_state:
+                self._cleanup_kernel(dead_state)
+
+            return {"output": output, "cell_index": cell_index}
+
+        except Exception:
+            # ZMQ/channel errors — check if killed
+            with self._lock:
+                if pane_id not in self._state:
+                    return {"output": "[killed]", "cell_index": base_cell_index}
+            raise
+
+        finally:
+            with self._lock:
+                if pane_id in self._state:
+                    state["current_input"] = ""
+                    state["current_output_parts"] = []
+                    state["current_events"] = []
+                    state.pop("stdin_handled", None)
+
+    def terminate(self, pane_id: str) -> None:
+        """Interrupt the running kernel."""
+        with self._lock:
+            state = self._state.get(pane_id)
+            km = state.get("km") if state else None
+        if km and km.is_alive():
+            km.interrupt_kernel()
+
+    def kill(self, pane_id: str) -> None:
+        """Shut down kernel and remove session state."""
+        with self._lock:
+            state = self._state.pop(pane_id, None)
+        if state:
+            self._cleanup_kernel(state)
+
+    def _cleanup_kernel(self, state: dict[str, Any]) -> None:
+        """Clean up kernel resources from a popped state dict."""
+        kc = state.get("kc")
+        km = state.get("km")
+        if kc:
+            with contextlib.suppress(Exception):
+                kc.stop_channels()
+            if hasattr(kc, "close"):
+                with contextlib.suppress(Exception):
+                    kc.close()
+        if km:
+            with contextlib.suppress(Exception):
+                km.shutdown_kernel(now=True)
+            if hasattr(km, "cleanup_resources"):
+                with contextlib.suppress(Exception):
+                    km.cleanup_resources()
+
+    def _poll_stdin(
+        self,
+        kc: Any,
+        km: Any,
+        state: dict[str, Any],
+        pane_id: str,
+    ) -> None:
+        """Check for stdin requests and reject them (non-blocking)."""
+        try:
+            stdin_msg = kc.get_stdin_msg(timeout=0)
+        except queue.Empty:
+            return
+        if stdin_msg.get("msg_type") == "input_request":
+            # Reply empty and interrupt — we don't support interactive input
+            with contextlib.suppress(Exception):
+                if hasattr(kc, "input_reply"):
+                    kc.input_reply("")
+                else:
+                    kc.input("")
+            with contextlib.suppress(Exception):
+                km.interrupt_kernel()
+            with self._lock:
+                if pane_id in self._state:
+                    state["stdin_handled"] = True
+                    state["current_output_parts"].append(
+                        "[error: kernel requested stdin; not supported]"
+                    )
+
+    def _process_iopub_msg(
+        self,
+        msg: dict,
+        state: dict[str, Any],
+        pane_id: str,
+    ) -> None:
+        """Process a matching iopub message, appending output and storing event."""
+        msg_type = msg.get("msg_type", "")
+        content = msg.get("content", {})
+
+        # Store event (capped, with truncation)
+        with self._lock:
+            if pane_id not in self._state:
+                return
+            if len(state["current_events"]) < self.MAX_EVENTS:
+                event = self._truncate_event(msg)
+                state["current_events"].append(event)
+
+        # Process message types
+        if msg_type == "stream":
+            text = content.get("text", "")
+            with self._lock:
+                if pane_id in self._state:
+                    state["current_output_parts"].append(text)
+
+        elif msg_type == "execute_result":
+            text = content.get("data", {}).get("text/plain", "")
+            with self._lock:
+                if pane_id in self._state:
+                    state["current_output_parts"].append(text)
+
+        elif msg_type == "display_data":
+            data = content.get("data", {})
+            text = data.get("text/plain", "")
+            if text:
+                with self._lock:
+                    if pane_id in self._state:
+                        state["current_output_parts"].append(text)
+            elif data:
+                first_mime = next(iter(data))
+                with self._lock:
+                    if pane_id in self._state:
+                        state["current_output_parts"].append(
+                            f"[display_data: {first_mime}]"
+                        )
+
+        elif msg_type == "error":
+            traceback = content.get("traceback", [])
+            if traceback:
+                cleaned = "\n".join(ANSI.sub("", ln) for ln in traceback)
+            else:
+                ename = content.get("ename", "Error")
+                evalue = content.get("evalue", "")
+                cleaned = f"{ename}: {evalue}"
+            with self._lock:
+                if pane_id in self._state:
+                    state["current_output_parts"].append(cleaned)
+
+    def _drain_until_idle(
+        self,
+        kc: Any,
+        msg_id: str,
+        state: dict[str, Any],
+        pane_id: str,
+    ) -> None:
+        """Read iopub messages until idle or timeout (used after interrupt)."""
+        deadline = time.time() + 5.0
+        saw_matching = False
+        while time.time() < deadline:
+            try:
+                msg = kc.get_iopub_msg(timeout=0.2)
+            except queue.Empty:
+                continue
+            parent_id = msg.get("parent_header", {}).get("msg_id")
+            msg_type = msg.get("msg_type", "")
+            content = msg.get("content", {})
+
+            if parent_id == msg_id:
+                saw_matching = True
+                if msg_type == "status" and content.get("execution_state") == "idle":
+                    break
+                self._process_iopub_msg(msg, state, pane_id)
+                continue
+
+            # Accept unparented idle once we've seen matching messages
+            if (
+                saw_matching
+                and not parent_id
+                and msg_type == "status"
+                and content.get("execution_state") == "idle"
+            ):
+                break
+
+    def _truncate_event(self, msg: dict) -> dict:
+        """Truncate large data values in event for storage."""
+        event = dict(msg)
+        content = event.get("content", {})
+        if "data" in content and isinstance(content["data"], dict):
+            truncated_data = {}
+            for mime, value in content["data"].items():
+                if mime in self._OMIT_MIMES:
+                    truncated_data[mime] = f"[omitted {mime} {len(str(value))}]"
+                elif isinstance(value, str) and len(value) > self.MAX_DATA_LEN:
+                    truncated_data[mime] = value[: self.MAX_DATA_LEN] + "..."
+                elif not isinstance(value, str):
+                    truncated_data[mime] = f"[omitted {mime} {len(str(value))}]"
+                else:
+                    truncated_data[mime] = value
+            event = {**event, "content": {**content, "data": truncated_data}}
+        return event

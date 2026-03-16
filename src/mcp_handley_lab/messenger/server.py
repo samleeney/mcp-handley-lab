@@ -28,8 +28,10 @@ from urllib.parse import parse_qs, urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 from uuid import uuid4
 
-from mcp_handley_lab.loop.client import kill, run, spawn
+from mcp_handley_lab.loop.client import kill, run, spawn, terminate
+from mcp_handley_lab.loop.client import read_raw as read_cells_raw
 from mcp_handley_lab.loop.client import session_id as get_session_id
+from mcp_handley_lab.loop.client import status as loop_status
 
 # ---------------------------------------------------------------------------
 # Environment (set via systemd EnvironmentFile or shell exports)
@@ -48,13 +50,18 @@ TELEGRAM_ALLOWED_CHAT_IDS: set[int] | None = (
 )
 
 CLAUDE_PERMISSION_MODE = os.environ.get("CLAUDE_PERMISSION_MODE", "acceptEdits")
+CLAUDE_DISALLOWED_TOOLS = os.environ.get("CLAUDE_DISALLOWED_TOOLS", "EnterPlanMode")
 _APPEND_SYSTEM_PROMPT = (
     "Keep responses concise for mobile. "
     "When a user sends an image, sticker, video, or document, "
     "ALWAYS use the Read tool to view the file before responding. "
     "Never guess or assume the contents of media files. "
     "To send a file to the user, output send:<filename> on its own line "
-    "(e.g. send:media/chart.png). Files must be under the current working directory."
+    "(e.g. send:media/chart.png). Files must be under the current working directory. "
+    "When sending emails, ALWAYS use draft=True to create a draft first. "
+    "Present the full draft (From, To, Subject, Body) to the user and wait for "
+    "explicit approval before calling send with mode='send_draft'. "
+    "Never call send_draft without first showing the draft and receiving approval."
 )
 
 MESSENGER_DIR = Path.home() / "messenger"
@@ -142,6 +149,67 @@ def _extract_send_files(text: str, cwd: Path) -> tuple[list[Path], str]:
 
 
 _MESSAGE_LOG_MAX = 200
+
+
+def _extract_usage(cells: list[dict]) -> dict | None:
+    """Extract usage info from the last cell's result event.
+
+    modelUsage is keyed by model name, e.g.:
+      {"claude-opus-4-6": {"inputTokens": ..., "contextWindow": ..., "costUSD": ...}}
+    We sum across models and take max contextWindow.
+    """
+    if not cells:
+        return None
+    last_cell = cells[-1]
+    for event in reversed(last_cell.get("events", [])):
+        if event.get("type") == "result":
+            model_usage = event.get("modelUsage") or {}
+            if not model_usage:
+                continue
+            input_tokens = output_tokens = context_window = 0
+            for model_data in model_usage.values():
+                if isinstance(model_data, dict):
+                    input_tokens += model_data.get("inputTokens", 0)
+                    output_tokens += model_data.get("outputTokens", 0)
+                    context_window = max(
+                        context_window, model_data.get("contextWindow", 0)
+                    )
+            return {
+                "context_window": context_window,
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+            }
+    return None
+
+
+def _context_footer(usage: dict) -> str:
+    """Format a context usage footer line from usage dict."""
+    ctx = usage["context_window"]
+    if not ctx:
+        return ""
+    used = usage["input_tokens"] + usage["output_tokens"]
+    pct = used / ctx * 100
+    return f"{pct:.0f}% context"
+
+
+COMMANDS = frozenset({"/reset", "/cancel", "/model", "/help", "/status"})
+
+
+def _parse_command(text: str) -> tuple[str, str] | None:
+    """Parse a command from text. Returns (cmd, args) or None if not a command."""
+    stripped = text.strip()
+    if not stripped.startswith("/"):
+        return None
+    parts = stripped.split(None, 1)
+    cmd_token = parts[0]
+    args = parts[1] if len(parts) > 1 else ""
+    # Strip @botname suffix from command token only (Telegram)
+    if "@" in cmd_token:
+        cmd_token = cmd_token.split("@", 1)[0]
+    cmd = cmd_token.lower()
+    if cmd not in COMMANDS:
+        return None
+    return cmd, args
 
 
 # ---------------------------------------------------------------------------
@@ -664,10 +732,13 @@ class ChatActor:
     def __init__(self, conversation_id: str, platform: Platform):
         self.conversation_id = conversation_id
         self.platform = platform
-        self.queue: asyncio.Queue[IncomingEvent] = asyncio.Queue(maxsize=50)
+        self.queue: asyncio.Queue[IncomingEvent | None] = asyncio.Queue(maxsize=50)
         self.cwd = _cwd_for_conversation(conversation_id)
         self.loop_id: str | None = None
         self.session_id: str = ""
+        self._model: str = ""
+        self._stopped = False
+        self._last_transcription: str | None = None
         self._state_file = self.cwd / "loop_state.json"
         self._msg_log_file = self.cwd / "message_log.json"
         self._message_log: dict[str, dict] = {}
@@ -677,11 +748,24 @@ class ChatActor:
         self.cwd.mkdir(parents=True, exist_ok=True)
         self._load_state()
         self._load_message_log()
+        if self._stopped:
+            return
         self._task = asyncio.create_task(self._run())
 
+    async def stop(self):
+        """Stop the actor gracefully."""
+        self._stopped = True
+        with contextlib.suppress(asyncio.QueueFull):
+            self.queue.put_nowait(None)  # Sentinel to unblock queue.get()
+        if self._task:
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._task
+
     async def _run(self):
-        while True:
+        while not self._stopped:
             event = await self.queue.get()
+            if event is None:
+                break  # Sentinel from stop()
             try:
                 await self._handle(event)
             except Exception as e:
@@ -774,14 +858,29 @@ class ChatActor:
         # Send typing indicator
         self.platform.send_typing(self.conversation_id)
 
+        # Dispatch commands
+        if event.kind == "command":
+            parsed = _parse_command(event.text)
+            if parsed:
+                cmd, args = parsed
+                if cmd == "/reset":
+                    await self._handle_reset()
+                    return
+                await self._handle_command(cmd, args)
+                return
+
         text = await asyncio.to_thread(self._prepare_text, event)
         for attempt in (1, 2):
             try:
                 output = await asyncio.to_thread(self._query, text)
-                transcription = getattr(self, "_last_transcription", None)
+                transcription = self._last_transcription
                 if transcription:
                     output = f"> {transcription.strip()}\n\n{output}"
                     self._last_transcription = None
+                # Append context usage footer
+                footer = await self._get_context_footer()
+                if footer:
+                    output = f"{output}\n\n_{footer}_"
                 self._send_response(output, reply_to=event.message_id)
                 return
             except RuntimeError as e:
@@ -793,15 +892,110 @@ class ChatActor:
     # Context window limit (tokens) — used to calculate usage percentage
     _CONTEXT_WINDOW = 200_000
 
+    async def _handle_command(self, cmd: str, args: str) -> None:
+        if cmd == "/help":
+            self._send_help()
+        elif cmd == "/cancel":
+            self._send_text("Cancelled.")
+        elif cmd == "/model":
+            await self._handle_model(args)
+        elif cmd == "/status":
+            await self._handle_status()
+
+    async def _kill_loop(self):
+        """Kill the active loop. Suppresses errors to avoid wedging the actor."""
+        if not self.loop_id:
+            return
+        try:
+            await asyncio.to_thread(kill, self.loop_id)
+        except Exception as e:
+            print(f"kill({self.loop_id}) failed: {e}", flush=True)
+
+    async def _handle_reset(self):
+        """Handle /reset. New conversation, preserve model preference."""
+        await self._kill_loop()
+        self.loop_id = None
+        self.session_id = ""
+        self._save_state()
+        self._send_text("Session reset. Send a new message to start fresh.")
+
+    def _send_help(self):
+        self._send_text(
+            "Commands:\n"
+            "/cancel - Cancel current operation\n"
+            "/reset - New conversation\n"
+            "/model [name] - Show or set model\n"
+            "/status - Show session status\n"
+            "/help - Show this help"
+        )
+
+    async def _handle_model(self, model_name: str):
+        if not model_name:
+            self._send_text(f"Current model: {self._model or 'default'}")
+            return
+        self._model = model_name
+        self._save_state()
+        if self.loop_id:
+            if not self.session_id:
+                sid = get_session_id(self.loop_id)
+                if sid:
+                    self.session_id = sid
+            await self._kill_loop()
+            self.loop_id = None
+            self._save_state()
+            self._send_text(f"Model set to {model_name}. Session restarted.")
+        else:
+            self._send_text(f"Model set to {model_name}.")
+
+    async def _handle_status(self):
+        if not self.loop_id:
+            self._send_text("No active session.")
+            return
+        try:
+            st = await asyncio.to_thread(loop_status, self.loop_id)
+            running = "running" if st.get("running") else "idle"
+            elapsed = f" ({st['elapsed_seconds']:.0f}s)" if st.get("running") else ""
+            lines = [f"Session: {self.loop_id}", f"Status: {running}{elapsed}"]
+            if self.session_id:
+                lines.append(f"Session ID: {self.session_id}")
+            if self._model:
+                lines.append(f"Model: {self._model}")
+            self._send_text("\n".join(lines))
+        except RuntimeError as e:
+            if "not_found" in str(e) or "not found" in str(e):
+                self.loop_id = None
+                self._save_state()
+                self._send_text("Session expired. Send a new message to start fresh.")
+            else:
+                self._send_text(f"Status error: {e}")
+
+    async def _get_context_footer(self) -> str:
+        """Get context usage footer from last cell's events."""
+        if not self.loop_id:
+            return ""
+        try:
+            cells = await asyncio.to_thread(read_cells_raw, self.loop_id)
+            usage = _extract_usage(cells)
+            if usage:
+                return _context_footer(usage)
+        except Exception:
+            pass
+        return ""
+
     def _query(self, text: str) -> str:
         """Ensure loop exists and run text. Called via to_thread."""
         if not self.loop_id:
+            args = f"--permission-mode {CLAUDE_PERMISSION_MODE}"
+            if CLAUDE_DISALLOWED_TOOLS:
+                args += f" --disallowed-tools {CLAUDE_DISALLOWED_TOOLS}"
+            if self._model:
+                args += f" --model {self._model}"
             self.loop_id = spawn(
                 "claude",
                 label=f"msg-{self.conversation_id[:20]}",
                 cwd=str(self.cwd),
                 prompt=_APPEND_SYSTEM_PROMPT,
-                args=f"--permission-mode {CLAUDE_PERMISSION_MODE}",
+                args=args,
                 session_id=self.session_id,
             )
             self._save_state()
@@ -824,32 +1018,25 @@ class ChatActor:
             if total_tokens > 0:
                 pct = total_tokens / self._CONTEXT_WINDOW * 100
                 if pct >= 80:
-                    output += (
-                        f"\n\n[context: {pct:.0f}% ({total_tokens:,}/{self._CONTEXT_WINDOW:,} tokens)"
-                    )
+                    output += f"\n\n[context: {pct:.0f}% ({total_tokens:,}/{self._CONTEXT_WINDOW:,} tokens)"
                     if pct >= 100:
                         output += " — auto-compacted"
                     output += "]"
         return output
-
-    def reset(self):
-        if self.loop_id:
-            with contextlib.suppress(RuntimeError):
-                kill(self.loop_id)
-        self.loop_id = None
-        self.session_id = ""
-        self._state_file.unlink(missing_ok=True)
 
     def _load_state(self):
         with contextlib.suppress(FileNotFoundError, json.JSONDecodeError):
             data = json.loads(self._state_file.read_text())
             self.loop_id = data.get("loop_id")
             self.session_id = data.get("session_id", "")
+            self._model = data.get("model", "")
 
     def _save_state(self):
-        self._state_file.write_text(
-            json.dumps({"loop_id": self.loop_id, "session_id": self.session_id})
-        )
+        data = {"loop_id": self.loop_id, "session_id": self.session_id}
+        if self._model:
+            data["model"] = self._model
+        self._state_file.parent.mkdir(parents=True, exist_ok=True)
+        self._state_file.write_text(json.dumps(data))
 
     def _clear_state(self):
         self.loop_id = None
@@ -861,6 +1048,7 @@ class ChatActor:
             self._message_log = json.loads(self._msg_log_file.read_text())
 
     def _save_message_log(self):
+        self._msg_log_file.parent.mkdir(parents=True, exist_ok=True)
         tmp = self._msg_log_file.with_suffix(".tmp")
         tmp.write_text(json.dumps(self._message_log))
         tmp.rename(self._msg_log_file)
@@ -875,28 +1063,25 @@ _actors: dict[str, ChatActor] = {}
 
 
 def _get_or_create_actor(conversation_id: str, platform: Platform) -> ChatActor:
-    if conversation_id not in _actors:
+    actor = _actors.get(conversation_id)
+    if actor and actor._stopped:
+        del _actors[conversation_id]
+        actor = None
+    if actor is None:
         actor = ChatActor(conversation_id, platform)
         _actors[conversation_id] = actor
         _loop.create_task(actor.start())
-    return _actors[conversation_id]
+    return actor
 
 
 async def _dispatch(event: IncomingEvent):
-    if event.kind == "command":
-        cmd = event.text.strip().lower().split("@")[0]
-        if cmd in ("/reset", "/new"):
-            actor = _actors.get(event.conversation_id)
-            if actor:
-                actor.reset()
-                del _actors[event.conversation_id]
-            event.platform.send_text(
-                event.conversation_id,
-                "Session reset. Send a new message to start fresh.",
-            )
-            return
-
     actor = _get_or_create_actor(event.conversation_id, event.platform)
+    # /reset and /cancel must interrupt a stuck _query() — terminate the loop
+    # before enqueueing so the blocked _run() unblocks.
+    if event.kind == "command":
+        parsed = _parse_command(event.text)
+        if parsed and parsed[0] in ("/reset", "/cancel") and actor.loop_id:
+            await asyncio.to_thread(terminate, actor.loop_id)
     try:
         actor.queue.put_nowait(event)
     except asyncio.QueueFull:
@@ -932,8 +1117,7 @@ _wa_platform: WhatsAppPlatform | None = None
 def _classify_wa_event(wa_msg: WAMessage) -> IncomingEvent:
     conversation_id = f"whatsapp:{wa_msg.sender}"
     text = wa_msg.text or wa_msg.caption or ""
-    cmd = text.strip().lower().split("@")[0]
-    kind = "command" if cmd in ("/reset", "/new") else "text"
+    kind = "command" if _parse_command(text) is not None else "text"
     return IncomingEvent(
         conversation_id,
         kind=kind,
@@ -1125,8 +1309,7 @@ def _handle_tg_message(msg: dict):
     if not text and not media_id:
         return
 
-    cmd = text.strip().lower().split("@")[0]
-    kind = "command" if cmd in ("/reset", "/new") else "text"
+    kind = "command" if _parse_command(text) is not None else "text"
 
     event = IncomingEvent(
         conversation_id,

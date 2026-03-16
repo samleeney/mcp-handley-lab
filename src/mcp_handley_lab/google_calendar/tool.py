@@ -2,6 +2,8 @@
 
 import logging
 import pickle
+import re
+import unicodedata
 import zoneinfo
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -15,6 +17,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field
+from rapidfuzz import fuzz
 
 from mcp_handley_lab.common.config import settings
 
@@ -105,6 +108,16 @@ class CalendarEvent(BaseModel):
         default_factory=list,
         description="Google Drive file attachments.",
     )
+
+
+class CompactCalendarEvent(BaseModel):
+    """Compact calendar event for search results (reduces token usage)."""
+
+    id: str
+    summary: str
+    start: EventDateTime
+    end: EventDateTime
+    calendar_name: str = ""
 
 
 class CreatedEventResult(BaseModel):
@@ -475,6 +488,23 @@ def _build_event_model(event_data: dict) -> CalendarEvent:
     )
 
 
+def _build_compact_event(event_data: dict) -> CompactCalendarEvent:
+    """Convert raw Google Calendar API event dict to CompactCalendarEvent."""
+    start_raw = event_data.get("start", {})
+    end_raw = event_data.get("end", {})
+
+    start_normalized = _normalize_datetime_for_output(start_raw)
+    end_normalized = _normalize_datetime_for_output(end_raw)
+
+    return CompactCalendarEvent(
+        id=event_data["id"],
+        summary=event_data.get("summary", "No Title"),
+        start=EventDateTime(**start_normalized),
+        end=EventDateTime(**end_normalized),
+        calendar_name=event_data.get("calendar_name", ""),
+    )
+
+
 def _upload_to_drive(local_path: str, remote: str = "gdrive") -> tuple[str, str]:
     """Upload a local file to Google Drive via rclone, return (fileUrl, fileId)."""
     import json
@@ -672,15 +702,48 @@ def _parse_datetime_to_utc(dt_str: str, default_tz: str = DEFAULT_TIMEZONE) -> s
         return dt_str + "Z"
 
 
+def _normalize_text(text: str, case_sensitive: bool = False) -> str:
+    """Normalize text for fuzzy matching.
+
+    NFKD decomposition, strip combining marks (accents), punctuation to spaces,
+    optional casefold. Ensures "café" → "cafe", "follow-up" → "follow up".
+    """
+    if not text:
+        return ""
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(c for c in text if not unicodedata.combining(c))
+    if not case_sensitive:
+        text = text.casefold()
+    text = re.sub(r"[-'_/]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def _term_threshold(term_len: int) -> float:
+    """Dynamic threshold: short terms need stricter match to avoid noise."""
+    if term_len <= 2:
+        return 95
+    if term_len <= 4:
+        return 90
+    if term_len <= 7:
+        return 85
+    if term_len <= 12:
+        return 80
+    return 75
+
+
 def _client_side_filter(
     events: list[dict[str, Any]],
-    search_text: str = "",
+    search_text: str | None = "",
     search_fields: list[str] | None = None,
     case_sensitive: bool = False,
     match_all_terms: bool = True,
 ) -> list[dict[str, Any]]:
-    """
-    Client-side filtering of events with advanced search capabilities.
+    """Client-side fuzzy search over calendar events using rapidfuzz.
+
+    Scores each query term against each event field with partial_ratio
+    (best substring match) and dynamic length-based thresholds.
+    Handles typos, word order, accents, and punctuation differences.
 
     Args:
         events: List of calendar events to filter
@@ -693,54 +756,62 @@ def _client_side_filter(
     if not search_text:
         return events
 
-    if search_fields is None:
+    if not search_fields:
         search_fields = ["summary", "description", "location"]
 
-    search_terms = search_text.split()
-    if not search_terms:
+    norm_query = _normalize_text(str(search_text).strip(), case_sensitive)
+    terms = norm_query.split()
+    if not terms:
         return events
 
-    if not case_sensitive:
-        search_terms = [term.lower() for term in search_terms]
-
-    filtered_events = []
+    filtered = []
 
     for event in events:
-        searchable_text_parts = []
+        # Normalize field texts once per event
+        norm_fields: dict[str, str] = {}
+        attendee_strings: list[str] = []
 
         for field in search_fields:
-            if field == "summary":
-                text = event.get("summary", "")
-            elif field == "description":
-                text = event.get("description", "")
-            elif field == "location":
-                text = event.get("location", "")
-            elif field == "attendees":
-                attendees = event.get("attendees", [])
-                attendee_texts = []
-                for attendee in attendees:
-                    attendee_texts.append(attendee.get("email", ""))
-                    attendee_texts.append(attendee.get("displayName", ""))
-                text = " ".join(attendee_texts)
+            if field == "attendees":
+                for att in event.get("attendees", []):
+                    if not isinstance(att, dict):
+                        continue
+                    for key in ("displayName", "email"):
+                        val = att.get(key)
+                        if val:
+                            attendee_strings.append(
+                                _normalize_text(str(val), case_sensitive)
+                            )
             else:
-                text = event.get(field, "")
+                val = event.get(field, "")
+                if val:
+                    norm_fields[field] = _normalize_text(str(val), case_sensitive)
 
-            if text:
-                searchable_text_parts.append(text)
-
-        full_searchable_text = " ".join(searchable_text_parts)
-        if not case_sensitive:
-            full_searchable_text = full_searchable_text.lower()
+        def _term_matches(
+            term: str,
+            _nf: dict[str, str] = norm_fields,
+            _as: list[str] = attendee_strings,
+            _sf: list[str] = search_fields,
+        ) -> bool:
+            threshold = _term_threshold(len(term))
+            for text in _nf.values():
+                if fuzz.partial_ratio(term, text) >= threshold:
+                    return True
+            if "attendees" in _sf:
+                for cand in _as:
+                    if fuzz.partial_ratio(term, cand) >= threshold:
+                        return True
+            return False
 
         if match_all_terms:
-            matches = all(term in full_searchable_text for term in search_terms)
+            ok = all(_term_matches(t) for t in terms)
         else:
-            matches = any(term in full_searchable_text for term in search_terms)
+            ok = any(_term_matches(t) for t in terms)
 
-        if matches:
-            filtered_events.append(event)
+        if ok:
+            filtered.append(event)
 
-    return filtered_events
+    return filtered
 
 
 def _get_series_master_id(event_data: dict) -> str | None:
@@ -824,7 +895,8 @@ def read(
     max_results: int = Field(100, description="Maximum events to return per calendar."),
     search_fields: list[str] | None = Field(
         None,
-        description="Client-side filter fields (e.g., 'summary', 'description'). None=API search only, []=search all fields.",
+        description="Fields to search in (e.g., ['summary', 'description', 'location', 'attendees']). "
+        "Default (None): summary, description, location.",
     ),
     case_sensitive: bool = Field(
         False,
@@ -833,6 +905,12 @@ def read(
     match_all_terms: bool = Field(
         True,
         description="If True (AND), all words must match. If False (OR), any can match.",
+    ),
+    mode: str = Field(
+        "auto",
+        description="Output detail level. 'compact': id/summary/start/end/calendar_name. "
+        "'full': all fields including description, attendees, attachments. "
+        "'auto' (default): compact for searches, full for get-by-id.",
     ),
     get_instances: bool = Field(
         False,
@@ -846,7 +924,7 @@ def read(
         "",
         description="For get_instances: end of time range (YYYY-MM-DD). Defaults to 1 year from time_min.",
     ),
-) -> list[CalendarEvent]:
+) -> list[CalendarEvent] | list[CompactCalendarEvent]:
     """Read calendar events - either get by ID or search."""
     from mcp_handley_lab.google_calendar.shared import read as _read
 
@@ -860,6 +938,7 @@ def read(
         search_fields=search_fields,
         case_sensitive=case_sensitive,
         match_all_terms=match_all_terms,
+        mode=mode,
         get_instances=get_instances,
         time_min=time_min,
         time_max=time_max,
@@ -1029,7 +1108,12 @@ def delete(
 
 _TOOL_CONFIGS["read"] = {
     "fn": read,
-    "description": "Read calendar events. Get single event by ID or search/list in date range.",
+    "description": "Read calendar events. Get single event by ID or search/list in date range. "
+    "Search uses fuzzy matching with typo tolerance "
+    "(e.g., 'examiner' matches 'Examiners meeting', 'cafe' matches 'café', "
+    "'meting' matches 'Meeting'). "
+    "Use mode='compact' (default for searches) for id/summary/start/end only, "
+    "mode='full' for all fields, mode='auto' for compact on search, full on get-by-id.",
 }
 _TOOL_CONFIGS["create"] = {
     "fn": create,
@@ -1065,6 +1149,26 @@ _inject_calendars_into_descriptions()
 
 for _name, _config in _TOOL_CONFIGS.items():
     mcp.add_tool(_config["fn"], name=_name, description=_config["description"])
+
+
+# Validate unknown parameters before dispatch (FastMCP silently ignores them)
+_original_call_tool = mcp.call_tool
+
+
+async def _validating_call_tool(name, arguments):
+    tool = mcp._tool_manager.get_tool(name)
+    if tool and arguments:
+        valid = set(tool.parameters.get("properties", {}).keys())
+        unknown = set(arguments.keys()) - valid
+        if unknown:
+            raise ValueError(
+                f"Unknown parameter(s) for '{name}': {sorted(unknown)}. "
+                f"Valid: {sorted(valid)}"
+            )
+    return await _original_call_tool(name, arguments)
+
+
+mcp.call_tool = _validating_call_tool
 
 
 if __name__ == "__main__":

@@ -312,6 +312,17 @@ def read(loop_id: str) -> list[dict[str, Any]]:
     return response.get("cells", [])
 
 
+def read_raw(loop_id: str) -> list[dict[str, Any]]:
+    """Read cells with raw events from a loop.
+
+    Returns:
+        List of cell dicts with index, input, output, events
+    """
+    request = {"action": "read_raw", "loop_id": loop_id}
+    response = _send_request(request)
+    return json.loads(response.get("raw_output", "[]"))
+
+
 def terminate(loop_id: str) -> bool:
     """Send Ctrl-C to interrupt a running eval.
 

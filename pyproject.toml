@@ -4,7 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-handley-lab"
-version = "0.29.9"
+
+version = "0.31.12"
 description = "MCP Handley Lab - A comprehensive MCP toolkit for research productivity and lab management"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -22,19 +23,12 @@ dependencies = [
     "googlemaps>=4.0.0",
     "openai>=1.0.0",
     "anthropic>=0.21.3",
-    "mistralai>=1.9.0",
+    "mistralai>=1.9.0,<2",
     "xai-sdk>=1.0.0",
     "Pillow>=10.0.0",
     "httpx>=0.25.0",
     "packaging>=21.0",
     "PyYAML>=6.0.0",
-    "ruamel.yaml>=0.17.0",
-    "tinydb>=4.8.0",
-    "jmespath>=1.0.0",
-    "watchdog>=3.0.0",
-    "msal>=1.20.0",
-    "nbformat>=5.0.0",
-    "nbclient>=0.8.0",
     "click>=8.0.0",
     "html2text>=2020.1.16",
     "beautifulsoup4>=4.12.0",
@@ -44,8 +38,10 @@ dependencies = [
     "dateparser>=1.2.0",
     "pendulum>=3.0.0",
     "wolframclient>=1.1.0",
-    "numpy>=1.24.0",
     "lxml>=4.9.0",
+    "pycookiecheat>=0.7.0",
+    "jupyter_client>=8.0.0",
+    "rapidfuzz>=3.0.0",
 ]
 
 [project.optional-dependencies]
@@ -57,7 +53,6 @@ dev = [
     "pytest-xdist>=3.0.0",
     "vcrpy>=4.0.0",
     "nest_asyncio>=1.6.0",
-    "black>=23.0.0",
     "ruff>=0.1.0",
     "pre-commit>=3.0.0",
     "tomli>=2.0.0",
@@ -76,7 +71,6 @@ mcp-google-photos = "mcp_handley_lab.google_photos.tool:mcp.run"
 mcp-email = "mcp_handley_lab.email.tool:mcp.run"
 mcp-msmtp-capture = "mcp_handley_lab.email.mutt.capture:main"
 mcp-search = "mcp_handley_lab.search.tool:mcp.run"
-mcp-py2nb = "mcp_handley_lab.py2nb.tool:mcp.run"
 mcp-loop = "mcp_handley_lab.loop.tool:mcp.run"
 mcp-otter = "mcp_handley_lab.otter.tool:mcp.run"
 mcp-screenshot = "mcp_handley_lab.screenshot.tool:mcp.run"
@@ -110,10 +104,6 @@ markers = [
     "live: marks tests that require live API calls (deselect with '-m \"not live\"')",
 ]
 
-[tool.black]
-line-length = 88
-target-version = ["py310"]
-
 [tool.ruff]
 target-version = "py310"
 line-length = 88
@@ -137,9 +127,4 @@ omit = [
     "src/mcp_handley_lab/__main__.py",
     "tests/*",
     "venv/*",
-]
-
-[dependency-groups]
-dev = [
-    "pytest>=8.4.1",
 ]

@@ -167,12 +167,13 @@ for i in range(0, len(lines), batch_size):
 from mcp_handley_lab import llm
 
 result = llm.chat(
-    prompt: str,              # The question/task
-    branch: str = "session",  # Conversation branch ("" for stateless)
-    model: str = "gemini",    # Provider or model name
-    system_prompt: str = "",  # System instructions
+    prompt: str,                    # The question/task
+    branch: str = "session",        # Conversation branch ("" or "false" for stateless)
+    model: str = "gemini",          # Provider or model name
+    system_prompt: str | None = None,  # System instructions
     temperature: float = 1.0,
-    options: dict = None,     # Provider-specific (grounding, reasoning_effort, etc.)
+    files: list[str] | None = None, # Paths to pass as context
+    options: dict = None,           # Provider-specific (grounding, reasoning_effort, etc.)
 )
 
 # Result fields (LLMResult):

@@ -5,10 +5,11 @@ Identical interface to MCP tools, usable without MCP server.
 
 import re
 import tempfile
-from email.parser import HeaderParser
+from email import policy
+from email.parser import Parser
 from pathlib import Path
 
-from mcp_handley_lab.email.mutt.tool import _compose_email
+from mcp_handley_lab.email.mutt import direct as direct_mod
 from mcp_handley_lab.shared.models import OperationResult
 
 
@@ -25,11 +26,16 @@ def _load_body_file(path: str) -> tuple[str, dict[str, str]]:
     """
     content = Path(path).read_text(encoding="utf-8")
 
-    # Check if file starts with RFC822 headers (Key: Value pattern)
-    lines = content.split("\n")
-    if lines and ":" in lines[0]:
-        # Try to parse as headers + body
-        msg = HeaderParser().parsestr(content)
+    # Check if file has RFC822 headers: must have a blank line separator
+    # and start with a known email header keyword
+    known_headers = {"to", "subject", "cc", "bcc", "from", "date", "reply-to"}
+    lines = content.splitlines()
+    has_blank_line = any(line.strip() == "" for line in lines[1:])
+    first_key = (
+        lines[0].split(":", 1)[0].strip().lower() if lines and ":" in lines[0] else ""
+    )
+    if has_blank_line and first_key in known_headers:
+        msg = Parser(policy=policy.default).parsestr(content)
         headers = {}
         for key, param in [
             ("to", "To"),
@@ -40,10 +46,28 @@ def _load_body_file(path: str) -> tuple[str, dict[str, str]]:
             value = msg.get(param)
             if value:
                 headers[key] = value
-        body = msg.get_payload() or ""
+        if msg.is_multipart():
+            part = msg.get_body(preferencelist=("plain",))
+            body = part.get_content() if part else ""
+        else:
+            body = msg.get_content()
         return body, headers
 
     return content, {}
+
+
+def _dispatch(
+    draft: bool,
+    direct: bool,
+    account: str,
+    **email_kwargs,
+) -> OperationResult:
+    """Route to draft save, direct send, or interactive Mutt."""
+    if draft:
+        return direct_mod.save_draft(account=account, **email_kwargs)
+    from mcp_handley_lab.email.mutt.tool import _compose_email
+
+    return _compose_email(direct=direct, account=account, **email_kwargs)
 
 
 def send(
@@ -58,35 +82,57 @@ def send(
     mode: str = "compose",
     reply_all: bool = False,
     thread_context: int = 5,
+    direct: bool = False,
+    draft: bool = False,
+    draft_id: str = "",
+    account: str = "",
+    confirmation_code: str = "",
 ) -> OperationResult:
-    """Send an email via Mutt.
+    """Send an email via Mutt or save as draft for programmatic approval.
 
     Supports compose (new), reply, and forward modes. For replying, prefer using
-    'reply' mode with a message_id to maintain thread context - the full conversation
-    thread will be included in quotes. All emails open in Mutt for user sign-off
-    before sending.
+    'reply' mode with a message_id to maintain thread context.
+
+    When draft=True, saves email as a draft instead of opening Mutt. Use
+    mode='send_draft' to send, 'discard_draft' to delete, 'list_drafts' to list.
 
     Args:
         to: Recipient address. Prefer 'Firstname Lastname <email>' format.
-            Required for compose/forward, auto-populated for reply.
         subject: The subject line of the email.
         body: Email body text. For reply/forward, added above quoted/forwarded content.
-        body_file: Path to a file containing the email body. Supports RFC822 format
-            (headers + blank line + body). Headers from the file are used as defaults
-            unless overridden by explicit parameters. Mutually exclusive with body.
-        cc: Carbon copy address. Prefer 'Firstname Lastname <email>' format.
-        bcc: Blind carbon copy address. Prefer 'Firstname Lastname <email>' format.
+        body_file: Path to file containing email body. Mutually exclusive with body.
+        cc: Carbon copy address.
+        bcc: Blind carbon copy address.
         attachments: A list of local file paths to attach to the email.
-        message_id: For reply/forward: the notmuch message ID of the email to reply to
-            or forward. Supports abbreviated IDs.
-        mode: Email mode: 'compose' (new email), 'reply', or 'forward'.
-        reply_all: For reply mode: if True, reply to all recipients (To and Cc).
-        thread_context: For reply mode: number of previous thread messages to include
-            (0 to disable, -1 for all).
+        message_id: For reply/forward: the notmuch message ID.
+        mode: Email mode: 'compose', 'reply', 'forward', 'send_draft',
+            'discard_draft', or 'list_drafts'.
+        reply_all: For reply mode: if True, reply to all recipients.
+        thread_context: For reply mode: number of previous thread messages to include.
+        draft: Save as draft instead of opening Mutt.
+        draft_id: Draft ID for send_draft/discard_draft modes.
+        account: msmtp account name for draft From address. Uses default if empty.
+        confirmation_code: For send_draft: verification code from save_draft.
 
     Returns:
         OperationResult with send status and details.
     """
+    # Draft lifecycle modes
+    if mode == "send_draft":
+        if not draft_id:
+            raise ValueError("'draft_id' is required for send_draft mode")
+        return direct_mod.send_draft(draft_id, confirmation_code)
+    if mode == "discard_draft":
+        if not draft_id:
+            raise ValueError("'draft_id' is required for discard_draft mode")
+        return direct_mod.discard_draft(draft_id)
+    if mode == "list_drafts":
+        return direct_mod.list_drafts()
+    if mode == "read_draft":
+        if not draft_id:
+            raise ValueError("'draft_id' is required for read_draft mode")
+        return direct_mod.read_draft(draft_id)
+
     if body and body_file:
         raise ValueError("'body' and 'body_file' are mutually exclusive")
 
@@ -106,11 +152,14 @@ def send(
     if mode == "compose":
         if not to:
             raise ValueError("'to' is required for compose mode")
-        return _compose_email(
+        return _dispatch(
+            draft=draft,
+            direct=direct,
+            account=account,
             to=to,
             subject=subject,
-            cc=cc,
-            bcc=bcc,
+            cc=cc or "",
+            bcc=bcc or "",
             body=body,
             attachments=attachments,
         )
@@ -215,10 +264,13 @@ def send(
                 else f"{reply_separator}\n{quoted_body}"
             )
 
-        return _compose_email(
+        return _dispatch(
+            draft=draft,
+            direct=direct,
+            account=account,
             to=reply_to,
-            cc=reply_cc,
-            bcc=bcc,
+            cc=reply_cc or "",
+            bcc=bcc or "",
             subject=reply_subject,
             body=complete_reply_body,
             attachments=attachments,
@@ -303,14 +355,20 @@ def send(
 
             all_attachments = original_attachments + (attachments or [])
 
-            return _compose_email(
+            return _dispatch(
+                draft=draft,
+                direct=direct,
+                account=account,
                 to=to,
-                cc=cc,
-                bcc=bcc,
+                cc=cc or "",
+                bcc=bcc or "",
                 subject=forward_subject,
                 body=complete_forward_body,
                 attachments=all_attachments or None,
             )
 
     else:
-        raise ValueError(f"Unknown mode: {mode}. Use 'compose', 'reply', or 'forward'.")
+        raise ValueError(
+            f"Unknown mode: {mode}. Use 'compose', 'reply', 'forward', "
+            "'send_draft', 'discard_draft', 'list_drafts', or 'read_draft'."
+        )

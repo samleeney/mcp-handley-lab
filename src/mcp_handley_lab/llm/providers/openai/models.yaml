@@ -1,9 +1,62 @@
 models:
+  gpt-5.4:
+    # Model metadata
+    description: "Most capable frontier model with 1M context, coding, and agentic capabilities"
+    capabilities: "🌟 Best for: Complex reasoning, coding, agentic workflows, tool use, computer use, document analysis"
+    tags: ["flagship", "latest", "general", "premium", "vision"]
+    context_window: "1,050,000 tokens"
+    output_tokens: 128000
+    param: "max_output_tokens"
+    supports_temperature: false  # Only supported when reasoning.effort = none
+    supports_vision: true
+    supports_reasoning: true  # Supports none (default), low, medium, high, xhigh
+    supports_verbosity: true  # Supports low, medium (default), high
+
+    # Pricing (tiered: <272K and >272K context)
+    input_tiers:
+      - threshold: 272000
+        price: 2.50
+      - threshold: .inf
+        price: 5.00
+    output_tiers:
+      - threshold: 272000
+        price: 15.00
+      - threshold: .inf
+        price: 22.50
+    cached_input_per_1m: 0.25
+    supports_caching: true
+
+  gpt-5.4-pro:
+    # Model metadata
+    description: "Version of GPT-5.4 that uses more compute for deeper reasoning"
+    capabilities: "🎯 Best for: Tough problems requiring longer thinking, highest precision tasks"
+    tags: ["flagship", "premium", "vision"]
+    context_window: "1,050,000 tokens"
+    output_tokens: 128000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_vision: true
+    supports_reasoning: true
+    supports_verbosity: true
+
+    # Pricing (tiered: <272K and >272K context)
+    input_tiers:
+      - threshold: 272000
+        price: 30.00
+      - threshold: .inf
+        price: 60.00
+    output_tiers:
+      - threshold: 272000
+        price: 180.00
+      - threshold: .inf
+        price: 270.00
+    supports_caching: false
+
   gpt-5.2:
     # Model metadata
-    description: "The best model for coding and agentic tasks across industries"
+    description: "Previous best model for coding and agentic tasks across industries"
     capabilities: "🌟 Best for: Complex reasoning, broad world knowledge, code-heavy tasks, multi-step agentic workflows"
-    tags: ["flagship", "latest", "general", "premium", "vision"]
+    tags: ["flagship", "general", "premium", "vision"]
     context_window: "400,000 tokens"
     output_tokens: 128000
     param: "max_output_tokens"
@@ -125,6 +178,97 @@ models:
     input_per_1m: 15.00
     output_per_1m: 120.00
     supports_caching: false
+
+  # Codex Models (agentic coding)
+  gpt-5.3-codex:
+    # Model metadata
+    description: "Most capable agentic coding model combining Codex + GPT-5 training"
+    capabilities: "💻 Best for: Autonomous coding agents, complex software engineering, multi-file edits"
+    tags: ["codex", "coding", "latest", "premium"]
+    context_window: "400,000 tokens"
+    output_tokens: 128000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_vision: true
+    supports_reasoning: true
+
+    # Pricing
+    input_per_1m: 1.75
+    output_per_1m: 14.00
+    cached_input_per_1m: 0.175
+    supports_caching: true
+
+  gpt-5.2-codex:
+    # Model metadata
+    description: "Previous Codex model for agentic coding tasks"
+    capabilities: "💻 Best for: Agentic coding, autonomous development workflows"
+    tags: ["codex", "coding"]
+    context_window: "400,000 tokens"
+    output_tokens: 128000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_vision: true
+    supports_reasoning: true
+
+    # Pricing
+    input_per_1m: 1.75
+    output_per_1m: 14.00
+    cached_input_per_1m: 0.175
+    supports_caching: true
+
+  gpt-5.1-codex:
+    # Model metadata
+    description: "Codex model optimized for agentic coding tasks"
+    capabilities: "💻 Best for: Code generation, agentic development"
+    tags: ["codex", "coding"]
+    context_window: "400,000 tokens"
+    output_tokens: 128000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_vision: true
+    supports_reasoning: true
+
+    # Pricing
+    input_per_1m: 1.25
+    output_per_1m: 10.00
+    cached_input_per_1m: 0.125
+    supports_caching: true
+
+  gpt-5.1-codex-max:
+    # Model metadata
+    description: "Maximum compute version of GPT-5.1 Codex for hardest coding tasks"
+    capabilities: "💻 Best for: Hardest coding problems, maximum precision development"
+    tags: ["codex", "coding", "premium"]
+    context_window: "400,000 tokens"
+    output_tokens: 128000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_vision: true
+    supports_reasoning: true
+
+    # Pricing
+    input_per_1m: 1.25
+    output_per_1m: 10.00
+    cached_input_per_1m: 0.125
+    supports_caching: true
+
+  gpt-5-codex:
+    # Model metadata
+    description: "Original GPT-5 Codex for agentic coding"
+    capabilities: "💻 Best for: Code generation, development workflows"
+    tags: ["codex", "coding"]
+    context_window: "400,000 tokens"
+    output_tokens: 128000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_vision: true
+    supports_reasoning: true
+
+    # Pricing
+    input_per_1m: 1.25
+    output_per_1m: 10.00
+    cached_input_per_1m: 0.125
+    supports_caching: true
 
   o3:
     # Model metadata
@@ -424,7 +568,81 @@ models:
     price_per_image: 0.040
     pricing_type: "per_image"
 
-  # Audio Models - Speech Recognition (ASR)
+  # Video Generation Models
+  sora-2:
+    # Model metadata
+    description: "Standard video generation model"
+    capabilities: "🎬 Best for: Video creation, motion content"
+    tags: ["video-generation", "latest"]
+    context_window: "N/A (Video generation)"
+    output_tokens: 0
+    param: "max_output_tokens"
+
+    # Pricing (per second)
+    price_per_second: 0.10
+    pricing_type: "per_second"
+
+  sora-2-pro:
+    # Model metadata
+    description: "High-quality video generation with enhanced resolution"
+    capabilities: "🎬 Best for: High-quality video creation, professional content"
+    tags: ["video-generation", "premium"]
+    context_window: "N/A (Video generation)"
+    output_tokens: 0
+    param: "max_output_tokens"
+
+    # Pricing (per second, resolution-dependent)
+    price_per_second_720p: 0.30
+    price_per_second_1024p: 0.50
+    pricing_type: "per_second"
+
+  # New Audio Models - Text-to-Speech
+  gpt-4o-mini-tts:
+    # Model metadata
+    description: "Cost-effective text-to-speech model"
+    capabilities: "🎤 Best for: Speech synthesis, voice generation"
+    tags: ["tts", "audio", "speech", "cost-effective"]
+    context_window: "N/A (TTS)"
+    output_tokens: 0
+    param: "max_output_tokens"
+
+    # Pricing (per 1M tokens)
+    text_input_per_1m: 0.60
+    audio_output_per_1m: 12.00
+    pricing_type: "tts"
+
+  # New Audio Models - Transcription
+  gpt-4o-transcribe:
+    # Model metadata
+    description: "High-quality speech-to-text transcription model"
+    capabilities: "🎧 Best for: Accurate transcription, multilingual audio"
+    tags: ["asr", "audio", "transcription"]
+    context_window: "N/A (ASR)"
+    output_tokens: 0
+    param: "max_output_tokens"
+
+    # Pricing (per 1M tokens)
+    text_input_per_1m: 2.50
+    audio_input_per_1m: 6.00
+    text_output_per_1m: 10.00
+    pricing_type: "transcription"
+
+  gpt-4o-mini-transcribe:
+    # Model metadata
+    description: "Cost-effective speech-to-text transcription model"
+    capabilities: "🎧 Best for: Fast transcription, cost-effective audio processing"
+    tags: ["asr", "audio", "transcription", "cost-effective"]
+    context_window: "N/A (ASR)"
+    output_tokens: 0
+    param: "max_output_tokens"
+
+    # Pricing (per 1M tokens)
+    text_input_per_1m: 1.25
+    audio_input_per_1m: 3.00
+    text_output_per_1m: 5.00
+    pricing_type: "transcription"
+
+  # Legacy Audio Models - Speech Recognition (ASR)
   whisper-1:
     # Model metadata
     description: "Whisper large-v2 model for speech-to-text transcription"
@@ -567,15 +785,21 @@ display_categories:
     tags: ["multimodal", "vision"]
     exclude_tags: ["image-generation", "flagship", "realtime"]
     description: "Models with vision and text capabilities"
+  - name: "💻 Codex Models"
+    tags: ["codex"]
+    description: "Agentic coding models for autonomous software development"
   - name: "🎨 Image Generation"
     tags: ["image-generation"]
     description: "Models for creating images from text"
+  - name: "🎬 Video Generation"
+    tags: ["video-generation"]
+    description: "Sora models for video creation"
   - name: "🎤 Text-to-Speech"
     tags: ["tts"]
     description: "Speech synthesis models (output handling not fully implemented)"
   - name: "🎧 Speech Recognition"
     tags: ["asr"]
-    description: "Whisper transcription models (input handling not fully implemented)"
+    description: "Transcription models including GPT-4o and Whisper"
   - name: "🔴 Realtime API"
     tags: ["realtime"]
     description: "Low-latency voice/audio models (not fully implemented)"
@@ -585,14 +809,14 @@ display_categories:
     description: "Previous generation models for established workflows"
 
 # Default model
-default_model: "gpt-5.2"
+default_model: "gpt-5.4"
 
 # Usage notes
 usage_notes:
-  - "GPT-5.2 is the flagship model with improved reasoning, instruction following, and coding capabilities"
-  - "GPT-5.2 supports reasoning effort levels: none (default), low, medium, high, xhigh"
-  - "GPT-5.1+ models support verbosity control: low (concise), medium (default), high (thorough)"
-  - "GPT-5 flagship models have 400K context window and support vision (image analysis)"
+  - "GPT-5.4 is the flagship model with 1M context, coding, agentic capabilities, and computer use"
+  - "GPT-5.4 supports reasoning effort levels: none (default), low, medium, high, xhigh"
+  - "GPT-5.4 supports verbosity control: low (concise), medium (default), high (thorough)"
+  - "GPT-5.4 has 1,050,000 token context window; GPT-5/5.1/5.2 have 400K context"
   - "GPT-5 models support cached input pricing for cost optimization (90% discount)"
   - "Flagship models (GPT-5 series) support temperature only when reasoning_effort='none'"
   - "Reasoning models (o1, o3, o4) don't support temperature parameter"
@@ -607,5 +831,10 @@ usage_notes:
   - "Priority processing offers reliable, high-speed performance with pay-as-you-go"
   - "Web search content tokens: free for gpt-4o/4.1 preview, fixed 8K block for mini models"
   - "TTS models: tts-1 ($15/M chars), tts-1-hd ($30/M chars)"
-  - "ASR: whisper-1 ($0.006/min)"
+  - "GPT-5.3-Codex: Most capable agentic coding model ($1.75/$14.00 per 1M tokens)"
+  - "Codex models support reasoning effort levels for complex coding tasks"
+  - "Sora 2: Video generation ($0.10/sec standard, $0.30-$0.50/sec pro)"
+  - "GPT-4o-mini-tts: New cost-effective TTS ($0.60 text input, $12.00 audio output per 1M)"
+  - "GPT-4o-transcribe/mini-transcribe: New transcription models replacing Whisper"
+  - "ASR: whisper-1 ($0.006/min) - legacy"
   - "⚠️ Audio I/O handling not fully implemented - models listed for completeness"

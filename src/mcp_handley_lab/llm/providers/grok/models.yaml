@@ -15,6 +15,7 @@ models:
     # Pricing
     input_per_1m: 0.20
     output_per_1m: 0.50
+    cached_input_per_1m: 0.05
 
   grok-4-1-fast-non-reasoning:
     # Model metadata
@@ -32,6 +33,7 @@ models:
     # Pricing
     input_per_1m: 0.20
     output_per_1m: 0.50
+    cached_input_per_1m: 0.05
 
   grok-4-fast-reasoning:
     # Model metadata
@@ -49,6 +51,7 @@ models:
     # Pricing
     input_per_1m: 0.20
     output_per_1m: 0.50
+    cached_input_per_1m: 0.05
 
   grok-4-fast-non-reasoning:
     # Model metadata
@@ -66,6 +69,7 @@ models:
     # Pricing
     input_per_1m: 0.20
     output_per_1m: 0.50
+    cached_input_per_1m: 0.05
 
   grok-4-0709:
     # Model metadata
@@ -83,6 +87,7 @@ models:
     # Pricing
     input_per_1m: 3.00
     output_per_1m: 15.00
+    cached_input_per_1m: 0.75
 
   grok-3:
     # Model metadata
@@ -93,13 +98,14 @@ models:
     output_tokens: 65536
     param: "max_tokens"
     supports_temperature: true
-    supports_vision: true
+    supports_vision: false
     supports_tool_calling: true
     supports_structured_output: true
 
     # Pricing
     input_per_1m: 3.00
     output_per_1m: 15.00
+    cached_input_per_1m: 0.75
 
   grok-3-mini:
     # Model metadata
@@ -110,13 +116,14 @@ models:
     output_tokens: 65536
     param: "max_tokens"
     supports_temperature: true
-    supports_vision: true
+    supports_vision: false
     supports_tool_calling: true
     supports_structured_output: true
 
     # Pricing
     input_per_1m: 0.30
     output_per_1m: 0.50
+    cached_input_per_1m: 0.07
 
   grok-code-fast-1:
     # Model metadata
@@ -133,6 +140,7 @@ models:
     # Pricing
     input_per_1m: 0.20
     output_per_1m: 1.50
+    cached_input_per_1m: 0.02
 
   grok-2-vision-1212:
     # Model metadata
@@ -151,11 +159,47 @@ models:
     input_per_1m: 2.00
     output_per_1m: 10.00
 
+  grok-imagine-image:
+    # Model metadata
+    description: "Fast, cost-effective image generation from text and image prompts"
+    capabilities: "🎨 Best for: Quick image generation, high-volume image creation"
+    tags: ["image-generation", "creative", "latest", "cost-effective"]
+    context_window: "131,072 tokens"
+    supports_image_generation: true
+
+    # Pricing
+    price_per_image: 0.02
+    pricing_type: "per_image"
+
+  grok-imagine-image-pro:
+    # Model metadata
+    description: "High-quality image generation with enhanced detail and fidelity"
+    capabilities: "🎨 Best for: Professional image generation, high-quality creative content"
+    tags: ["image-generation", "creative", "latest", "premium"]
+    context_window: "131,072 tokens"
+    supports_image_generation: true
+
+    # Pricing
+    price_per_image: 0.07
+    pricing_type: "per_image"
+
+  grok-imagine-video:
+    # Model metadata
+    description: "Video generation with native audio from text, image, and video prompts"
+    capabilities: "🎬 Best for: Video creation, animated content with audio"
+    tags: ["video-generation", "creative", "latest"]
+    context_window: "131,072 tokens"
+    output_tokens: 0
+
+    # Pricing (per second)
+    price_per_second: 0.050
+    pricing_type: "per_second"
+
   grok-2-image-1212:
     # Model metadata
-    description: "Latest image generation model capable of generating multiple images from text prompt"
+    description: "Previous generation image model for text-to-image generation"
     capabilities: "🎨 Best for: Image generation, creative visual content"
-    tags: ["image-generation", "creative", "latest"]
+    tags: ["image-generation", "creative", "legacy"]
     context_window: "131,072 tokens"
     supports_image_generation: true
     supports_tool_calling: true
@@ -181,9 +225,12 @@ display_categories:
     tags: ["multimodal", "vision"]
     exclude_tags: ["image-generation"]
     description: "Grok models with vision and text capabilities"
-  - name: "🎨 Image Generation"
+  - name: "🎨 Grok Imagine (Image)"
     tags: ["image-generation"]
-    description: "Grok models for creating images from text"
+    description: "Grok Imagine models for image creation"
+  - name: "🎬 Grok Imagine (Video)"
+    tags: ["video-generation"]
+    description: "Grok Imagine models for video creation with native audio"
   - name: "🏢 Enterprise Models"
     tags: ["enterprise"]
     description: "Grok models optimized for enterprise workflows"
@@ -198,10 +245,13 @@ default_model: "grok-4-1-fast-reasoning"
 usage_notes:
   - "All Grok models support function calling, tool use, and structured outputs"
   - "Grok-4.1-fast models are the latest with 2M context windows ($0.20/$0.50 per 1M tokens)"
-  - "Grok-3, Grok-3-mini, and Grok-4 fast models support vision (image analysis)"
+  - "Grok-4 fast models support vision (image analysis); grok-3 and grok-3-mini do NOT support vision"
+  - "All text models support cached input pricing for cost optimization"
   - "grok-code-fast-1 is optimized for lightning-fast agentic coding tasks"
   - "grok-4-1-fast-reasoning and grok-4-1-fast-non-reasoning offer best cost/performance"
-  - "Image generation models charge per image ($0.07), not per token"
+  - "Grok Imagine: grok-imagine-image ($0.02/image), grok-imagine-image-pro ($0.07/image)"
+  - "Grok Imagine Video: $0.05/second with native audio"
+  - "Legacy image generation (grok-2-image-1212): $0.07/image"
   - "Grok has less restrictive moderation compared to other providers"
   - "API is compatible with OpenAI and Anthropic SDKs for easy migration"
   - "Real-time search integration available with live web data from X"

@@ -9,8 +9,10 @@ from typing import Any
 from mcp_handley_lab.google_calendar.tool import (
     CalendarEvent,
     CalendarInfo,
+    CompactCalendarEvent,
     CreatedEventResult,
     UpdateEventResult,
+    _build_compact_event,
     _build_event_model,
     _client_side_filter,
     _get_calendar_service,
@@ -39,10 +41,11 @@ def read(
     search_fields: list[str] | None = None,
     case_sensitive: bool = False,
     match_all_terms: bool = True,
+    mode: str = "auto",
     get_instances: bool = False,
     time_min: str = "",
     time_max: str = "",
-) -> list[CalendarEvent]:
+) -> list[CalendarEvent] | list[CompactCalendarEvent]:
     """Read calendar events - either get by ID or search.
 
     Args:
@@ -53,8 +56,8 @@ def read(
         start_date: Start date (YYYY-MM-DD) for search. Defaults to today.
         end_date: End date (YYYY-MM-DD) for search. Defaults to 7 days from start.
         max_results: Maximum events to return per calendar.
-        search_fields: Client-side filter fields (e.g., 'summary', 'description').
-            None=API search only, []=search all fields.
+        search_fields: Fields to search in (e.g., 'summary', 'description', 'attendees').
+            Default (None): summary, description, location.
         case_sensitive: If True, search is case-sensitive.
         match_all_terms: If True (AND), all words must match. If False (OR), any can match.
         get_instances: If True with event_id, return all instances of the recurring series.
@@ -62,7 +65,7 @@ def read(
         time_max: For get_instances: end of time range (YYYY-MM-DD). Defaults to 1 year from time_min.
 
     Returns:
-        List of CalendarEvent objects.
+        List of CalendarEvent (full mode) or CompactCalendarEvent (compact mode).
     """
     service = _get_calendar_service()
 
@@ -70,6 +73,13 @@ def read(
     if event_id:
         if calendar_id == "all":
             raise ValueError("Cannot use calendar_id='all' when fetching by event_id")
+
+        # Resolve mode: auto → full for get-by-id
+        id_mode = "full" if mode == "auto" else mode
+        id_builder = (
+            _build_compact_event if id_mode == "compact" else _build_event_model
+        )
+
         resolved_id = _resolve_calendar_id(calendar_id, service)
         event = service.events().get(calendarId=resolved_id, eventId=event_id).execute()
 
@@ -147,7 +157,7 @@ def read(
             for inst in all_instances:
                 inst["calendar_name"] = calendar_name
 
-            return [_build_event_model(inst) for inst in all_instances]
+            return [id_builder(inst) for inst in all_instances]
 
         if _has_timezone_inconsistency(event):
             logger.warning(
@@ -158,7 +168,17 @@ def read(
                 calendar_id,
             )
 
-        return [_build_event_model(event)]
+        return [id_builder(event)]
+
+    # Resolve mode: auto → full for event_id, compact otherwise
+    resolved_mode = mode
+    if mode == "auto":
+        resolved_mode = "compact"
+
+    # Determine API fields parameter for compact mode (reduces bandwidth)
+    api_fields = None
+    if resolved_mode == "compact":
+        api_fields = "items(id,summary,start,end,status),nextPageToken"
 
     # Search/list events
     if not start_date:
@@ -173,7 +193,7 @@ def read(
         end_date = end_dt.isoformat().replace("+00:00", "Z")
     else:
         if "T" not in end_date:
-            end_date = end_date + "T23:59:59Z"
+            end_date = _parse_datetime_to_utc(end_date + "T23:59:59")
         else:
             end_date = _parse_datetime_to_utc(end_date)
 
@@ -193,14 +213,20 @@ def read(
                 "singleEvents": True,
                 "orderBy": "startTime",
             }
-            if search_text:
-                params["q"] = search_text
-            events_result = service.events().list(**params).execute()
+            if api_fields:
+                params["fields"] = api_fields
 
-            cal_events = events_result.get("items", [])
-            for event in cal_events:
-                event["calendar_name"] = calendar.get("summary", cal_id)
-            events_list.extend(cal_events)
+            # Paginate to get all results
+            while True:
+                events_result = service.events().list(**params).execute()
+                cal_events = events_result.get("items", [])
+                for event in cal_events:
+                    event["calendar_name"] = calendar.get("summary", cal_id)
+                events_list.extend(cal_events)
+                next_token = events_result.get("nextPageToken")
+                if not next_token:
+                    break
+                params["pageToken"] = next_token
     else:
         resolved_id = _resolve_calendar_id(calendar_id, service)
 
@@ -212,17 +238,24 @@ def read(
             "singleEvents": True,
             "orderBy": "startTime",
         }
-        if search_text:
-            params["q"] = search_text
-        events_result = service.events().list(**params).execute()
-        events_list = events_result.get("items", [])
+        if api_fields:
+            params["fields"] = api_fields
 
-    # Client-side filtering
-    if search_fields is not None or case_sensitive or not match_all_terms:
+        # Paginate to get all results
+        while True:
+            events_result = service.events().list(**params).execute()
+            events_list.extend(events_result.get("items", []))
+            next_token = events_result.get("nextPageToken")
+            if not next_token:
+                break
+            params["pageToken"] = next_token
+
+    # Client-side filtering (always run when search_text is present)
+    if search_text:
         filtered_events = _client_side_filter(
             events_list,
             search_text=search_text,
-            search_fields=search_fields if search_fields else None,
+            search_fields=search_fields,
             case_sensitive=case_sensitive,
             match_all_terms=match_all_terms,
         )
@@ -238,7 +271,8 @@ def read(
         )
     )
 
-    return [_build_event_model(event) for event in filtered_events]
+    builder = _build_compact_event if resolved_mode == "compact" else _build_event_model
+    return [builder(event) for event in filtered_events]
 
 
 def create(

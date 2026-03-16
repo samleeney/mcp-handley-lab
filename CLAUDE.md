@@ -41,14 +41,16 @@ When you encounter a bug or issue in an MCP tool, file a GitHub issue with `gh i
 |------------|-----------|-------------|
 | `mcp-llm` | `src/mcp_handley_lab/llm/tool.py` | Chat, vision, image gen, transcribe, OCR, models |
 | `mcp-llm-embeddings` | `src/mcp_handley_lab/llm/embeddings/tool.py` | Text embeddings & semantic search |
-| `mcp-email` | `src/mcp_handley_lab/email/tool.py` (entry); `email/notmuch/tool.py` (read/update), `email/mutt/tool.py` (send), `email/offlineimap/tool.py` (sync) | Email read/send/update/sync |
+| `mcp-email` | `src/mcp_handley_lab/email/tool.py` (entry); `email/notmuch/tool.py` (read/update), `email/msmtp/tool.py` (send), `email/offlineimap/tool.py` (sync) | Email read/send/update/sync |
 | `mcp-google-calendar` | `src/mcp_handley_lab/google_calendar/tool.py` | Calendar CRUD & search |
 | `mcp-google-maps` | `src/mcp_handley_lab/google_maps/tool.py` | Directions & routes |
 | `mcp-google-photos` | `src/mcp_handley_lab/google_photos/tool.py` | Photo search, browse, detail, download |
-| `mcp-repl` | `src/mcp_handley_lab/repl/tool.py` | REPL session management |
+| `mcp-loop` | `src/mcp_handley_lab/loop/tool.py` | Persistent REPL sessions (Python, Bash, Julia, R, Claude) |
 | `mcp-mathematica` | `src/mcp_handley_lab/mathematica/tool.py` | Wolfram Language evaluation |
 | `mcp-word` | `src/mcp_handley_lab/microsoft/word/tool.py` | Word document read/edit |
 | `mcp-excel` | `src/mcp_handley_lab/microsoft/excel/tool.py` | Excel workbook read/edit |
+| `mcp-powerpoint` | `src/mcp_handley_lab/microsoft/powerpoint/tool.py` | PowerPoint presentation read/edit |
+| `mcp-visio` | `src/mcp_handley_lab/microsoft/visio/tool.py` | Visio diagram read/edit |
 | `mcp-search` | `src/mcp_handley_lab/search/tool.py` | Conversation transcript search |
 | `mcp-screenshot` | `src/mcp_handley_lab/screenshot/tool.py` | Window/screen capture |
 | `mcp-code2prompt` | `src/mcp_handley_lab/code2prompt/tool.py` | Codebase summarization |
@@ -250,7 +252,7 @@ Provider-agnostic LLM tools supporting Gemini, OpenAI, Claude, Grok, Mistral, an
 
 #### mcp-llm
 - **Location**: `src/mcp_handley_lab/llm/tool.py`
-- **Functions**: `chat`, `conversation`, `generate_image`, `transcribe`, `ocr`, `list_models`
+- **Functions**: `chat`, `conversation`, `review`, `generate_image`, `transcribe`, `ocr`, `list_models`
 - **Features**: Text generation, vision analysis (via `images` param on `chat`), image generation, audio transcription, OCR, model discovery, persistent memory via branches
 - **Model Selection**: Use `model` parameter with provider name (gemini, openai, claude, grok, mistral, groq) or specific model ID
 
@@ -261,7 +263,7 @@ Provider-agnostic LLM tools supporting Gemini, OpenAI, Claude, Grok, Mistral, an
 
 ### Google Calendar Tool ✓
 - **Location**: `src/mcp_handley_lab/google_calendar/`
-- **Functions**: `search_events`, `get_event`, `create_event`, `update_event`, `delete_event`, `list_calendars`, `find_time`
+- **Functions**: `read`, `create`, `update`, `delete`
 
 ### ArXiv Tool ✓
 - **Location**: `src/mcp_handley_lab/arxiv/`
@@ -281,12 +283,31 @@ pip install -e .[dev]
 mcp-llm                                         # Chat, vision, image gen, transcribe, OCR, models
 mcp-llm-embeddings                              # Text embeddings & search
 
-# Other Tools
-mcp-code2prompt                                 # Codebase summarization
-mcp-arxiv                                       # ArXiv paper download
+# Productivity Tools
 mcp-google-calendar                             # Calendar management
 mcp-google-maps                                 # Directions/routes
-mcp-email                                       # Email via notmuch
+mcp-google-photos                               # Photo search & download
+mcp-email                                       # Email via notmuch/msmtp
+mcp-search                                      # Conversation transcript search
+mcp-otter                                       # Otter.ai live transcripts
+mcp-screenshot                                  # Window/screen capture
+
+# Document Tools
+mcp-word                                        # Word document read/edit
+mcp-excel                                       # Excel workbook read/edit
+mcp-powerpoint                                  # PowerPoint read/edit
+mcp-visio                                       # Visio diagram read/edit
+
+# Code & Research Tools
+mcp-code2prompt                                 # Codebase summarization
+mcp-arxiv                                       # ArXiv paper download
+mcp-loop                                        # Persistent REPL sessions
+mcp-mathematica                                 # Wolfram Language evaluation
+
+# Meta
+mcp-handley-lab                                 # Unified entry point
+mcp-cli                                         # CLI management tool
+messenger                                       # Standalone messenger server
 ```
 
 ### JSON-RPC MCP Server Usage
@@ -516,7 +537,7 @@ if __name__ == "__main__": test_mcp_jsonrpc()
   1. JSON-RPC testing (preferred): Send test messages to the server
   2. Python direct testing: Create test scripts that import and call functions
   3. Unit tests: Run pytest on modified functionality
-- Example: After adding search_events to Google Calendar, test with JSON-RPC before attempting mcp__google-calendar__search_events
+- Example: After modifying Google Calendar, test with JSON-RPC before attempting mcp__google-calendar__read
 
 **Error Examples to Watch For:**
 ```json
@@ -548,7 +569,7 @@ if __name__ == "__main__": test_mcp_jsonrpc()
 {
   "method": "tools/call",
   "params": {
-    "name": "search_events",
+    "name": "read",
     "arguments": {
       "start_date": "2024-06-25",
       "end_date": "2024-06-26"
@@ -616,7 +637,7 @@ Note: Calendar and email discovery data (calendars, tags, folders, accounts) are
 | Resource URI | Server | Description |
 |-------------|--------|-------------|
 | `model://list` | mcp-llm | All LLM models grouped by provider with capabilities and pricing |
-| `repl://backends` | mcp-repl | All available REPL backends (bash, python, julia, etc.) |
+| `repl://backends` | mcp-loop | All available REPL backends (bash, python, julia, etc.) |
 
 ### Usage via JSON-RPC
 
@@ -736,7 +757,7 @@ Following architectural best practices, tests are organized by concern:
 - Mock all external dependencies (APIs, CLIs, file I/O)
 - Test business logic in isolation
 - Fast execution, no network calls
-- Example: `test_mutt_filesystem_operations.py`
+- Example: `test_mutt_internal_unit.py`
 
 #### **CLI Integration Tests** (Command Execution)
 - Real CLI commands with mocked filesystem
@@ -759,7 +780,7 @@ Following architectural best practices, tests are organized by concern:
 #### **Workflow Tests** (End-to-End Scenarios)
 - Complete workflows combining multiple components
 - Real-world usage scenarios and cross-component integration
-- Example: `test_mutt_workflows.py`
+- Example: `test_mutt_cli_integration.py`
 
 ### Factory Fixtures for Complex Setup
 
@@ -810,17 +831,17 @@ Integration tests are **essential** for tools that interact with external CLIs o
 
 ### Testing Commands
 - **All tests**: `python -m pytest tests/ --cov=mcp_handley_lab --cov-report=term-missing`
-- **Integration tests only**: `python -m pytest tests/test_openai_integration.py -v`
+- **Integration tests only**: `python -m pytest tests/integration/ -v`
 - **Unit tests only**: `python -m pytest tests/ -k "not integration" --cov=mcp_handley_lab --cov-report=term-missing`
-- **Fast integration check**: `python -m pytest tests/test_openai_integration.py`
+- **Fast integration check**: `python -m pytest tests/integration/test_llm_integration.py`
 - **Slow tests excluded**: `python -m pytest tests/ -m "not slow" --cov=mcp_handley_lab --cov-report=term-missing`
 - **Email integration tests**: `RUN_SLOW_TESTS=1 python -m pytest tests/integration/test_email_integration.py -v`
 - **Target**: 100% test coverage to identify refactoring opportunities
 
 ### VCR (HTTP Recording) for Fast Integration Tests
-- **VCR now properly configured**: `pytest-vcr>=3.0.0` added to dev dependencies
+- **VCR now properly configured**: `pytest-vcr>=1.0.0` added to dev dependencies
 - **API-based integration tests use VCR**: Record real HTTP requests once, replay for fast subsequent runs
-- **VCR cassettes stored in**: `tests/fixtures/vcr_cassettes/` (auto-created)
+- **VCR cassettes stored in**: `tests/integration/cassettes/` (primary), `tests/integration/vcr_cassettes/` (Google Maps), `tests/integration/otter_cassettes/` (Otter)
 - **Re-record cassettes**: Delete cassette files and re-run tests to capture new API interactions
 
 ## Key Files

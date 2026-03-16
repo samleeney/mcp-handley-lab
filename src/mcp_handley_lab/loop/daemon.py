@@ -110,7 +110,7 @@ class LoopDaemon:
         self.last_activity = time.time()
         self.running = True
         self.backends: dict[str, Any] = {}  # backend name -> backend instance
-        self._lock = threading.Lock()  # protects self.loops and self.backends
+        self._lock = threading.RLock()  # protects self.loops and self.backends
 
     def load_state(self):
         """Load persisted state. Re-adoption deferred to Phase 2."""
