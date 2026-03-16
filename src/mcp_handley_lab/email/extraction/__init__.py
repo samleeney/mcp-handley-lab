@@ -25,6 +25,46 @@ __all__ = [
 ]
 
 
+def _normalize_line(s: str) -> str:
+    """Collapse whitespace and lowercase for content comparison."""
+    return re.sub(r"\s+", " ", s.strip().lower())
+
+
+def _meaningful_lines(text: str, min_len: int = 8) -> list[str]:
+    """Extract normalized non-trivial lines from text."""
+    return [
+        _normalize_line(line)
+        for line in text.splitlines()
+        if line.strip() and len(line.strip()) >= min_len
+    ]
+
+
+def _content_coverage(source_lines: list[str], target_text: str) -> float:
+    """Fraction of source lines found as substrings in target text."""
+    if not source_lines:
+        return 1.0
+    target_norm = _normalize_line(target_text)
+    found = sum(1 for line in source_lines if line in target_norm)
+    return found / len(source_lines)
+
+
+def _merge_markdown(plain_md: str, html_md: str) -> str:
+    """Merge plain-only content into HTML markdown when they differ."""
+    html_lines_set = set(_meaningful_lines(html_md))
+    html_norm = _normalize_line(html_md)
+    plain_only = [
+        line
+        for line in plain_md.splitlines()
+        if line.strip()
+        and len(line.strip()) >= 8
+        and _normalize_line(line) not in html_lines_set
+        and _normalize_line(line) not in html_norm
+    ]
+    if not plain_only:
+        return html_md
+    return html_md.rstrip() + "\n\n---\n\n" + "\n".join(plain_only) + "\n"
+
+
 def extract_email_content(
     msg: EmailMessage,
     segment_quotes: bool = False,
@@ -35,11 +75,10 @@ def extract_email_content(
 
     Pipeline:
     1. MIME extraction (explicit part iteration)
-    2. Raw preservation (store original)
-    3. HTML→Markdown (link-preserving)
-    4. Quote segmentation (optional, non-destructive)
-    5. Encoding fixes (ftfy only)
-    6. Conservative whitespace (preserve structure)
+    2. Convert both plain and HTML to markdown, pick richer or merge
+    3. Encoding fixes (ftfy only)
+    4. Conservative whitespace (preserve structure)
+    5. Quote segmentation (optional, non-destructive)
 
     Args:
         msg: Parsed EmailMessage object
@@ -59,27 +98,48 @@ def extract_email_content(
         if p.filename and p.disposition == "attachment"
     ]
 
-    # Determine body format and raw content
-    # body_raw = decoded source of selected body part (plain or HTML)
-    # body_html_raw = original HTML (always present if HTML was available)
-    if plain_content:
-        body_format = "text"
-        body_raw = plain_content
-        body_html_raw = html_content  # Preserve HTML even if we have plain
-    elif html_content:
-        body_format = "html"
-        body_raw = html_content  # Raw is the HTML source for HTML-only emails
-        body_html_raw = html_content
-    else:
-        body_format = "empty"
-        body_raw = ""
-        body_html_raw = ""
+    # Step 2: Convert both to markdown, pick richer or merge
+    plain_md = plain_content or ""
+    html_md = html_to_markdown(html_content) if html_content else ""
 
-    # Step 2: Convert to markdown
-    if body_format == "html":
-        body_markdown = html_to_markdown(html_content)
+    if plain_md and html_md:
+        plain_lines = _meaningful_lines(plain_md)
+        coverage = _content_coverage(plain_lines, html_md)
+        if coverage >= 0.9:
+            # HTML contains (nearly) all plain content — use richer HTML
+            body_markdown = html_md
+            body_format = "html"
+        else:
+            # Genuinely different — merge plain-only content into HTML
+            body_markdown = _merge_markdown(plain_md, html_md)
+            body_format = "html"
+    elif html_md:
+        body_markdown = html_md
+        body_format = "html"
+    elif plain_md:
+        body_markdown = plain_md
+        body_format = "text"
     else:
-        body_markdown = plain_content
+        body_markdown = ""
+        body_format = "empty"
+
+    body_raw = html_content if body_format == "html" else (plain_content or "")
+    body_html_raw = html_content or ""
+
+    # Update parts_manifest to reflect actual selection (exactly one part)
+    if parts_manifest:
+        wanted_type = "text/html" if body_format == "html" else "text/plain"
+        selected_found = False
+        for p in parts_manifest:
+            if (
+                not selected_found
+                and p.content_type == wanted_type
+                and p.disposition != "attachment"
+            ):
+                p.is_selected_body = True
+                selected_found = True
+            else:
+                p.is_selected_body = False
 
     # Step 3: Encoding fixes (ftfy)
     if body_markdown:
