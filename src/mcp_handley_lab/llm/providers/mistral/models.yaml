@@ -4,7 +4,7 @@ models:
     description: "Latest flagship model - Mistral Large 3 (v25.12)"
     capabilities: "🎯 Best for: Complex reasoning, analysis, multimodal tasks"
     tags: ["mistral-large", "latest", "frontier", "multimodal"]
-    context_window: "128,000 tokens"
+    context_window: "256,000 tokens"
     output_tokens: 8192
     supports_vision: true
     supports_grounding: false
@@ -38,7 +38,7 @@ models:
     description: "Ministral 3 3B - tiny efficient model with vision (v25.12)"
     capabilities: "🚀 Best for: Edge deployment, ultra-low latency"
     tags: ["ministral", "edge", "cost-effective", "vision"]
-    context_window: "128,000 tokens"
+    context_window: "256,000 tokens"
     output_tokens: 8192
     supports_vision: true
     supports_grounding: false
@@ -49,7 +49,7 @@ models:
     description: "Ministral 3 8B - efficient model with vision (v25.12)"
     capabilities: "🚀 Best for: Fast inference, high-volume tasks"
     tags: ["ministral", "edge", "cost-effective", "vision"]
-    context_window: "128,000 tokens"
+    context_window: "256,000 tokens"
     output_tokens: 8192
     supports_vision: true
     supports_grounding: false
@@ -57,12 +57,12 @@ models:
     output_per_1m: 0.15
 
   ministral-14b-latest:
-    description: "Ministral 3 14B - mid-size efficient model (v25.12)"
+    description: "Ministral 3 14B - mid-size efficient model with vision (v25.12)"
     capabilities: "🚀 Best for: Balanced edge performance, moderate complexity"
-    tags: ["ministral", "edge", "cost-effective"]
-    context_window: "128,000 tokens"
+    tags: ["ministral", "edge", "cost-effective", "vision"]
+    context_window: "256,000 tokens"
     output_tokens: 8192
-    supports_vision: false
+    supports_vision: true
     supports_grounding: false
     input_per_1m: 0.20
     output_per_1m: 0.20
@@ -72,7 +72,7 @@ models:
     description: "Magistral Medium 1.2 - frontier reasoning model (v25.09)"
     capabilities: "🧠 Best for: Complex reasoning, step-by-step thinking"
     tags: ["magistral", "reasoning", "frontier"]
-    context_window: "40,000 tokens"
+    context_window: "128,000 tokens"
     output_tokens: 40000
     supports_vision: false
     supports_grounding: false
@@ -84,7 +84,7 @@ models:
     description: "Magistral Small 1.2 - efficient reasoning model (v25.09)"
     capabilities: "🧠 Best for: Cost-effective reasoning tasks"
     tags: ["magistral", "reasoning", "cost-effective"]
-    context_window: "40,000 tokens"
+    context_window: "128,000 tokens"
     output_tokens: 40000
     supports_vision: false
     supports_grounding: false
@@ -97,7 +97,7 @@ models:
     description: "Codestral - cutting-edge coding model (v25.08)"
     capabilities: "💻 Best for: Code generation, completion, debugging"
     tags: ["codestral", "coding", "latest"]
-    context_window: "256,000 tokens"
+    context_window: "128,000 tokens"
     output_tokens: 8192
     supports_vision: false
     supports_grounding: false
@@ -109,7 +109,7 @@ models:
     description: "Devstral 2 Medium - advanced open SWE model (v25.12)"
     capabilities: "💻 Best for: Complex software engineering, agentic coding"
     tags: ["devstral", "coding", "swe"]
-    context_window: "128,000 tokens"
+    context_window: "256,000 tokens"
     output_tokens: 8192
     supports_vision: false
     supports_grounding: false
@@ -121,7 +121,7 @@ models:
     description: "Devstral Small 2 - efficient open SWE model (v25.12)"
     capabilities: "💻 Best for: Software engineering tasks, cost-effective"
     tags: ["devstral", "coding", "swe"]
-    context_window: "128,000 tokens"
+    context_window: "256,000 tokens"
     output_tokens: 8192
     supports_vision: false
     supports_grounding: false
@@ -142,9 +142,9 @@ models:
     output_per_1m: 6.00
 
   pixtral-12b-2409:
-    description: "Pixtral 12B - lightweight vision model"
-    capabilities: "👁️ Best for: OCR, cost-effective vision tasks"
-    tags: ["pixtral", "vision", "cost-effective"]
+    description: "DEPRECATED (retired Dec 31, 2025) - Pixtral 12B lightweight vision model"
+    capabilities: "👁️ Best for: OCR, cost-effective vision tasks (use ministral-14b-latest instead)"
+    tags: ["pixtral", "vision", "cost-effective", "deprecated"]
     context_window: "128,000 tokens"
     output_tokens: 8192
     supports_vision: true
@@ -157,7 +157,7 @@ models:
     description: "Voxtral Small - audio chat model (v25.07)"
     capabilities: "🎤 Best for: Audio conversations, voice understanding"
     tags: ["voxtral", "audio", "chat"]
-    context_window: "128,000 tokens"
+    context_window: "32,000 tokens"
     output_tokens: 8192
     supports_vision: false
     supports_grounding: false
@@ -169,7 +169,7 @@ models:
     description: "Voxtral Mini - audio transcription model (v25.07)"
     capabilities: "🎤 Best for: Speech-to-text, transcription"
     tags: ["voxtral", "audio", "transcription"]
-    context_window: "128,000 tokens"
+    context_window: "32,000 tokens"
     output_tokens: 8192
     supports_vision: false
     supports_grounding: false
@@ -182,7 +182,7 @@ models:
     description: "Voxtral Mini Transcribe - latest audio transcription (Feb 2026)"
     capabilities: "🎤 Best for: High-accuracy speech-to-text, transcription"
     tags: ["voxtral", "audio", "transcription", "latest"]
-    context_window: "128,000 tokens"
+    context_window: "32,000 tokens"
     output_tokens: 8192
     supports_vision: false
     supports_grounding: false
@@ -195,7 +195,7 @@ models:
     description: "Voxtral Mini Transcribe Realtime - live transcription (Feb 2026)"
     capabilities: "🎤 Best for: Real-time transcription, live audio processing"
     tags: ["voxtral", "audio", "transcription", "realtime", "latest"]
-    context_window: "128,000 tokens"
+    context_window: "32,000 tokens"
     output_tokens: 8192
     supports_vision: false
     supports_grounding: false
@@ -257,7 +257,7 @@ models:
     description: "Code embedding model (v25.05)"
     capabilities: "🔍 Best for: Code search, repository exploration"
     tags: ["embedding", "code"]
-    context_window: "32,000 tokens"
+    context_window: "8,000 tokens"
     output_tokens: 0
     supports_vision: false
     supports_grounding: false
@@ -308,5 +308,5 @@ usage_notes:
   - "Ministral: Edge-optimized models (3B, 8B, 14B) for high-volume tasks"
   - "OCR 3 (ocr-3-25-12): Latest document OCR, $2 per 1,000 pages"
   - "Voxtral Transcribe (26-02): Latest transcription models including realtime"
-  - "All chat models support 128k context (except Magistral: 40k)"
+  - "Context windows: Large/Ministral/Devstral/Magistral 256k, Codestral/Mistral-Medium/Small 128k, Voxtral 32k"
   - "Free tier available for experimentation"

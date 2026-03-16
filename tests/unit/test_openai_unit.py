@@ -16,6 +16,8 @@ class TestOpenAIModelConfiguration:
         """Test that all expected OpenAI models are in MODEL_CONFIGS."""
         expected_models = {
             # GPT-5 series
+            "gpt-5.4",
+            "gpt-5.4-pro",
             "gpt-5.2",
             "gpt-5.2-pro",
             "gpt-5.1",
@@ -131,7 +133,7 @@ class TestOpenAIModelConfiguration:
     def test_get_model_config_unknown_model(self):
         """Test get_model_config falls back to default for unknown models."""
         config = get_model_config("unknown-model")
-        # Should default to gpt-5.2 (Responses API)
+        # Should default to gpt-5.4 (Responses API)
         assert config["output_tokens"] == 128000
         assert config["param"] == "max_output_tokens"
 

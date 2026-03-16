@@ -32,6 +32,7 @@ class TestModelConfiguration:
         expected_models = {
             "gemini-3.1-pro-preview",
             "gemini-3.1-pro-preview-customtools",
+            "gemini-3.1-flash-lite-preview",
             "gemini-3.1-flash-image-preview",
             "gemini-3-pro-preview",
             "gemini-3-flash-preview",
