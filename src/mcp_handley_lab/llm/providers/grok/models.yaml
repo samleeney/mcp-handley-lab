@@ -15,6 +15,7 @@ models:
     # Pricing
     input_per_1m: 0.20
     output_per_1m: 0.50
+    cached_input_per_1m: 0.05
 
   grok-4-1-fast-non-reasoning:
     # Model metadata
@@ -32,6 +33,7 @@ models:
     # Pricing
     input_per_1m: 0.20
     output_per_1m: 0.50
+    cached_input_per_1m: 0.05
 
   grok-4-fast-reasoning:
     # Model metadata
@@ -49,6 +51,7 @@ models:
     # Pricing
     input_per_1m: 0.20
     output_per_1m: 0.50
+    cached_input_per_1m: 0.05
 
   grok-4-fast-non-reasoning:
     # Model metadata
@@ -66,6 +69,7 @@ models:
     # Pricing
     input_per_1m: 0.20
     output_per_1m: 0.50
+    cached_input_per_1m: 0.05
 
   grok-4-0709:
     # Model metadata
@@ -83,6 +87,7 @@ models:
     # Pricing
     input_per_1m: 3.00
     output_per_1m: 15.00
+    cached_input_per_1m: 0.75
 
   grok-3:
     # Model metadata
@@ -93,13 +98,14 @@ models:
     output_tokens: 65536
     param: "max_tokens"
     supports_temperature: true
-    supports_vision: true
+    supports_vision: false
     supports_tool_calling: true
     supports_structured_output: true
 
     # Pricing
     input_per_1m: 3.00
     output_per_1m: 15.00
+    cached_input_per_1m: 0.75
 
   grok-3-mini:
     # Model metadata
@@ -110,13 +116,14 @@ models:
     output_tokens: 65536
     param: "max_tokens"
     supports_temperature: true
-    supports_vision: true
+    supports_vision: false
     supports_tool_calling: true
     supports_structured_output: true
 
     # Pricing
     input_per_1m: 0.30
     output_per_1m: 0.50
+    cached_input_per_1m: 0.07
 
   grok-code-fast-1:
     # Model metadata
@@ -133,6 +140,7 @@ models:
     # Pricing
     input_per_1m: 0.20
     output_per_1m: 1.50
+    cached_input_per_1m: 0.02
 
   grok-2-vision-1212:
     # Model metadata
@@ -237,7 +245,8 @@ default_model: "grok-4-1-fast-reasoning"
 usage_notes:
   - "All Grok models support function calling, tool use, and structured outputs"
   - "Grok-4.1-fast models are the latest with 2M context windows ($0.20/$0.50 per 1M tokens)"
-  - "Grok-3, Grok-3-mini, and Grok-4 fast models support vision (image analysis)"
+  - "Grok-4 fast models support vision (image analysis); grok-3 and grok-3-mini do NOT support vision"
+  - "All text models support cached input pricing for cost optimization"
   - "grok-code-fast-1 is optimized for lightning-fast agentic coding tasks"
   - "grok-4-1-fast-reasoning and grok-4-1-fast-non-reasoning offer best cost/performance"
   - "Grok Imagine: grok-imagine-image ($0.02/image), grok-imagine-image-pro ($0.07/image)"

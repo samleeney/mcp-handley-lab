@@ -232,6 +232,12 @@ class EmailContent(BaseModel, extra="forbid"):
         default=None, description="Which MIME part was chosen as body."
     )
 
+    # Search diagnostic (set by auto-relaxation)
+    search_note: str | None = Field(
+        default=None,
+        description="Diagnostic note about the search (e.g., auto-relaxation applied).",
+    )
+
     # Truncation metadata (summary mode only)
     is_truncated: bool | None = Field(
         default=None, description="True if body was truncated in summary mode."
@@ -315,6 +321,10 @@ class SearchResult(BaseModel):
     )
     tags: list[str] = Field(
         default_factory=list, description="Tags associated with this email."
+    )
+    search_note: str = Field(
+        default="",
+        description="Diagnostic note about the search (e.g., auto-relaxation applied).",
     )
 
 
@@ -911,7 +921,10 @@ def read(
         _diagnostics=diagnostics,
     )
     if diagnostics and results:
-        return ["\n".join(diagnostics), *results]
+        note = "\n".join(diagnostics)
+        first = results[0]
+        if isinstance(first, (SearchResult, EmailContent)):
+            first.search_note = note
     return results
 
 

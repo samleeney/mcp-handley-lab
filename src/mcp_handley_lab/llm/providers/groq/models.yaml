@@ -127,6 +127,20 @@ models:
     input_per_1m: 0.29
     output_per_1m: 0.59
 
+  meta-llama/llama-4-maverick-17b-128e-instruct:
+    description: "Meta's Llama 4 Maverick 17B with 128 experts - powerful multimodal MoE model."
+    capabilities: "Best for: Complex reasoning, multimodal tasks, high-quality generation."
+    tags: ["llama4", "multimodal", "vision", "powerful", "preview"]
+    context_window: "131,072 tokens"
+    output_tokens: 8192
+    param: "max_tokens"
+    supports_temperature: true
+    supports_vision: true
+    supports_tool_calling: true
+    supports_system_prompt: true
+    input_per_1m: 0.20
+    output_per_1m: 0.60
+
   # Safety Models (Preview)
   meta-llama/llama-prompt-guard-2-86m:
     description: "Meta's Llama Prompt Guard 2 86M - prompt injection detection."
@@ -139,8 +153,8 @@ models:
     supports_vision: false
     supports_tool_calling: false
     supports_system_prompt: true
-    input_per_1m: 0.20
-    output_per_1m: 0.20
+    input_per_1m: 0.04
+    output_per_1m: 0.04
 
   meta-llama/llama-prompt-guard-2-22m:
     description: "Meta's Llama Prompt Guard 2 22M - lightweight prompt injection detection."
@@ -153,8 +167,8 @@ models:
     supports_vision: false
     supports_tool_calling: false
     supports_system_prompt: true
-    input_per_1m: 0.20
-    output_per_1m: 0.20
+    input_per_1m: 0.03
+    output_per_1m: 0.03
 
   # Text-to-Speech Models
   canopylabs/orpheus-v1-english:
@@ -249,13 +263,13 @@ display_categories:
     tags: ["asr", "whisper"]
     description: "Automatic speech recognition models (input handling not fully implemented)."
 
-default_model: "moonshotai/kimi-k2-instruct-0905"
+default_model: "openai/gpt-oss-120b"
 
 usage_notes:
   - "Groq models are served via an OpenAI-compatible API."
   - "All LLM models support the 'temperature' parameter."
   - "Pricing is per million tokens (input/output) for LLMs."
-  - "Llama 4 models support vision/multimodal inputs."
+  - "Llama 4 Scout (17B/16E) and Maverick (17B/128E) support vision/multimodal inputs."
   - "Context windows: Most models support 131K tokens, Kimi supports 262K tokens."
   - "Preview models may be deprecated with short notice."
   - "TTS models: Orpheus English ($22/M chars), Orpheus Arabic ($40/M chars)"

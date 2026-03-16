@@ -294,6 +294,8 @@ def _auto_relax(
         relaxed = _relax_query(query, clauses, step)
         if relaxed == query:
             continue  # transformation was a no-op
+        if not relaxed.strip():
+            continue  # relaxation removed all constraints; skip
         # Apply folder expansion to relaxed query for consistency
         expanded = _expand_folder_families(relaxed, families)
         count = _notmuch_count(expanded, include_excluded)
