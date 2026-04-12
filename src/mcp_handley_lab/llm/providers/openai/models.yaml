@@ -179,7 +179,77 @@ models:
     output_per_1m: 120.00
     supports_caching: false
 
+  gpt-5.4-mini:
+    # Model metadata
+    description: "Cheaper, faster version of GPT-5.4 with 1M context"
+    capabilities: "⚖️ Best for: Most tasks requiring large context, balanced performance and cost"
+    tags: ["flagship", "latest", "general", "cost-effective", "vision"]
+    context_window: "1,050,000 tokens"
+    output_tokens: 128000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_vision: true
+    supports_reasoning: true
+    supports_verbosity: true
+
+    # Pricing (tiered: <272K and >272K context)
+    input_tiers:
+      - threshold: 272000
+        price: 0.40
+      - threshold: .inf
+        price: 0.80
+    output_tiers:
+      - threshold: 272000
+        price: 2.00
+      - threshold: .inf
+        price: 3.00
+    cached_input_per_1m: 0.04
+    supports_caching: true
+
+  gpt-5.4-nano:
+    # Model metadata
+    description: "Cheapest, fastest GPT-5.4 variant for high-volume tasks (API-only)"
+    capabilities: "⚡ Best for: High-volume processing, cost optimization, fast inference"
+    tags: ["flagship", "latest", "general", "fast", "cost-effective"]
+    context_window: "1,050,000 tokens"
+    output_tokens: 128000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_reasoning: true
+
+    # Pricing (tiered: <272K and >272K context)
+    input_tiers:
+      - threshold: 272000
+        price: 0.08
+      - threshold: .inf
+        price: 0.16
+    output_tiers:
+      - threshold: 272000
+        price: 0.40
+      - threshold: .inf
+        price: 0.60
+    cached_input_per_1m: 0.008
+    supports_caching: true
+
   # Codex Models (agentic coding)
+  gpt-5.3-codex-spark:
+    # Model metadata
+    description: "Faster variant of GPT-5.3 Codex for agentic coding, research preview (>1000 tok/s)"
+    capabilities: "💻 Best for: Fast agentic coding, rapid iteration, high-throughput development"
+    tags: ["codex", "coding", "fast", "preview"]
+    context_window: "400,000 tokens"
+    output_tokens: 128000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_vision: true
+    supports_reasoning: true
+
+    # Pricing
+    input_per_1m: 1.00
+    output_per_1m: 8.00
+    cached_input_per_1m: 0.10
+    supports_caching: true
+
   gpt-5.3-codex:
     # Model metadata
     description: "Most capable agentic coding model combining Codex + GPT-5 training"

@@ -53,6 +53,25 @@ models:
       - threshold: .inf
         price: 18.00
 
+  gemini-3.1-flash-live-preview:
+    # Model metadata
+    description: "Real-time audio-to-audio model for Live API with low-latency streaming"
+    capabilities: "🔴 Best for: Real-time audio conversations, low-latency voice interaction, Live API"
+    tags: ["gemini-3.1", "flash", "realtime", "audio"]
+    context_window: "1,000,000 tokens"
+    output_tokens: 65536
+
+    # Capabilities
+    supports_vision: true
+    supports_grounding: false
+
+    # Pricing (by modality)
+    input_by_modality:
+      text: 0.50
+      image: 0.50
+      audio: 1.00
+    output_per_1m: 3.00
+
   gemini-3.1-flash-lite-preview:
     # Model metadata
     description: "Cost-effective Gemini 3.1 Flash Lite model for fast, high-volume tasks"
