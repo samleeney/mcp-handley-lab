@@ -170,7 +170,7 @@ default_model: "claude-opus-4-6"
 # Usage notes
 usage_notes:
   - "Claude Opus 4.6 has 200K context (1M beta) and 128K max output"
-  - "Claude Opus 4.6 and Sonnet 4.5 support 1M token context window with beta header (context-1m-2025-08-07)"
+  - "Claude Opus 4.6 and Sonnet 4.6 support 1M token context window with beta header (context-1m-2025-08-07)"
   - "Long context pricing: requests >200K input tokens charged at 2x input and 1.5x output rates"
   - "All models support vision and image analysis capabilities"
   - "All models support extended thinking for complex reasoning tasks"

@@ -215,6 +215,7 @@ models:
     output_tokens: 128000
     param: "max_output_tokens"
     supports_temperature: false
+    supports_vision: true
     supports_reasoning: true
 
     # Pricing (tiered: <272K and >272K context)
