@@ -18,6 +18,7 @@ MODEL_PREFIXES = [
     ("imagen-", "gemini"),
     ("veo-", "gemini"),
     ("lyria-", "gemini"),
+    ("nano-banana-", "gemini"),
     ("deep-research-", "gemini"),
     # OpenAI
     ("gpt-image", "openai"),

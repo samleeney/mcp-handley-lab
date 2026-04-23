@@ -854,7 +854,6 @@ usage_notes:
   - "GPT-5.4 supports reasoning effort levels: none (default), low, medium, high, xhigh"
   - "GPT-5.4 supports verbosity control: low (concise), medium (default), high (thorough)"
   - "GPT-5.4 has 1,050,000 token context window; GPT-5/5.1/5.2 have 400K context"
-  - "GPT-5.4 Mini and Nano: Cost-effective 1M context variants of GPT-5.4"
   - "GPT-5.1 Mini: Cost-effective variant of GPT-5.1"
   - "codex-mini-latest: Lightweight Codex model for fast agentic coding"
   - "GPT-5 models support cached input pricing for cost optimization (90% discount)"
