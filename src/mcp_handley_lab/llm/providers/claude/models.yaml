@@ -1,11 +1,30 @@
 models:
+  claude-opus-4-7:
+    # Model metadata
+    description: "Most capable Claude model for complex reasoning and agentic coding"
+    capabilities: "🌟 Best for: Complex reasoning, agentic coding, adaptive thinking, large context"
+    tags: ["claude-4.7", "opus", "premium", "latest"]
+    context_window: "1,000,000 tokens"
+    input_tokens: 1000000
+    output_tokens: 128000
+
+    # Capabilities
+    supports_vision: true
+    supports_system_prompt: true
+    supports_extended_thinking: false
+    supports_adaptive_thinking: true
+
+    # Pricing
+    input_per_1m: 5.00
+    output_per_1m: 25.00
+
   claude-opus-4-6:
     # Model metadata
-    description: "Most intelligent Claude model for building agents and coding"
+    description: "Previous most intelligent Claude model for building agents and coding"
     capabilities: "🌟 Best for: Complex reasoning, agents, coding, extended thinking, adaptive thinking"
-    tags: ["claude-4.6", "opus", "premium", "latest"]
-    context_window: "200,000 tokens / 1M tokens (beta)"
-    input_tokens: 200000
+    tags: ["claude-4.6", "opus", "premium"]
+    context_window: "1,000,000 tokens"
+    input_tokens: 1000000
     output_tokens: 128000
 
     # Capabilities
@@ -41,8 +60,8 @@ models:
     description: "Fast, intelligent Claude model for complex agents and coding"
     capabilities: "🎯 Best for: Complex agents, coding, agentic workflows, extended thinking, adaptive thinking"
     tags: ["claude-4.6", "sonnet", "general", "latest"]
-    context_window: "200,000 tokens / 1M tokens (beta)"
-    input_tokens: 200000
+    context_window: "1,000,000 tokens"
+    input_tokens: 1000000
     output_tokens: 64000
 
     # Capabilities
@@ -51,17 +70,9 @@ models:
     supports_extended_thinking: true
     supports_adaptive_thinking: true
 
-    # Pricing (tiered based on prompt token count)
-    input_tiers:
-      - threshold: 200000
-        price: 3.00
-      - threshold: .inf
-        price: 6.00
-    output_tiers:
-      - threshold: 200000
-        price: 15.00
-      - threshold: .inf
-        price: 22.50
+    # Pricing
+    input_per_1m: 3.00
+    output_per_1m: 15.00
 
   claude-sonnet-4-5-20250929:
     # Model metadata
@@ -111,13 +122,10 @@ models:
 # 5-minute cache writes are 1.25x base input; 1-hour cache writes are 2x base input; cache reads are 0.1x base input
 cache_pricing:
   cache_write:
+    claude-opus-4-7: 6.25
     claude-opus-4-6: 6.25
     claude-opus-4-5-20251101: 6.25
-    claude-sonnet-4-6:
-      - threshold: 200000
-        price: 3.75
-      - threshold: .inf
-        price: 7.50
+    claude-sonnet-4-6: 3.75
     claude-sonnet-4-5-20250929:
       - threshold: 200000
         price: 3.75
@@ -126,13 +134,10 @@ cache_pricing:
     claude-haiku-4-5-20251001: 1.25
 
   cache_write_1h:
+    claude-opus-4-7: 10.00
     claude-opus-4-6: 10.00
     claude-opus-4-5-20251101: 10.00
-    claude-sonnet-4-6:
-      - threshold: 200000
-        price: 6.00
-      - threshold: .inf
-        price: 12.00
+    claude-sonnet-4-6: 6.00
     claude-sonnet-4-5-20250929:
       - threshold: 200000
         price: 6.00
@@ -141,13 +146,10 @@ cache_pricing:
     claude-haiku-4-5-20251001: 2.00
 
   cache_read:
+    claude-opus-4-7: 0.50
     claude-opus-4-6: 0.50
     claude-opus-4-5-20251101: 0.50
-    claude-sonnet-4-6:
-      - threshold: 200000
-        price: 0.30
-      - threshold: .inf
-        price: 0.60
+    claude-sonnet-4-6: 0.30
     claude-sonnet-4-5-20250929:
       - threshold: 200000
         price: 0.30
@@ -157,27 +159,29 @@ cache_pricing:
 
 # Display categories (how to group models by tags for presentation)
 display_categories:
+  - name: "🚀 Claude 4.7 Series"
+    tags: ["claude-4.7"]
+    description: "Latest generation Claude model with 1M context and step-change agentic coding"
   - name: "🚀 Claude 4.6 Series"
     tags: ["claude-4.6"]
-    description: "Latest generation Claude model with adaptive thinking and 128K output"
+    description: "Claude models with adaptive thinking, extended thinking, and 1M context"
   - name: "🚀 Claude 4.5 Series"
     tags: ["claude-4.5"]
     description: "Claude models with extended thinking and enhanced capabilities"
 
 # Default model
-default_model: "claude-opus-4-6"
+default_model: "claude-opus-4-7"
 
 # Usage notes
 usage_notes:
-  - "Claude Opus 4.6 has 200K context (1M beta) and 128K max output"
-  - "Claude Opus 4.6 and Sonnet 4.5 support 1M token context window with beta header (context-1m-2025-08-07)"
-  - "Long context pricing: requests >200K input tokens charged at 2x input and 1.5x output rates"
+  - "Claude Opus 4.7: Most capable model for complex reasoning and agentic coding ($5/$25 per 1M tokens)"
+  - "Claude Opus 4.7 has 1M context window and 128K max output (300K via batch with beta header)"
+  - "Claude Opus 4.7 supports adaptive thinking but NOT extended thinking"
+  - "Claude Opus 4.7 uses a new tokenizer that may use up to 35% more tokens for the same text"
+  - "Claude Opus 4.6 and Sonnet 4.6 have 1M context window at standard pricing"
   - "All models support vision and image analysis capabilities"
-  - "All models support extended thinking for complex reasoning tasks"
-  - "Claude Opus 4.6 supports adaptive thinking (unique to Opus 4.6)"
   - "System prompts supported via separate parameter"
   - "Prompt caching: 5-minute cache write (1.25x), 1-hour cache write (2x), cache read (0.1x)"
-  - "Claude Opus 4.6: Most intelligent for agents and coding ($5/$25 per 1M tokens)"
   - "Claude Sonnet 4.6: Fast, intelligent model for agents and coding ($3/$15 per 1M tokens)"
   - "Claude Sonnet 4.5: Previous generation Sonnet ($3/$15 per 1M tokens)"
   - "Claude Haiku 4.5: Near-frontier intelligence with fastest latency and lowest cost ($1/$5 per 1M tokens)"
@@ -187,3 +191,4 @@ usage_notes:
   - "Service tiers: Standard (default), Priority (SLA), Batch (50% discount)"
   - "Extended thinking costs additional per reasoning token generated"
   - "Data residency (US-only inference): 1.1x multiplier on all token pricing (Opus 4.6+ only)"
+  - "Fast mode (Opus 4.6 only): 6x standard rates for significantly faster output ($30/$150 per 1M tokens)"

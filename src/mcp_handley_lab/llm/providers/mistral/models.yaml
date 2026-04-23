@@ -23,15 +23,15 @@ models:
     output_per_1m: 2.00
 
   mistral-small-latest:
-    description: "Mistral Small 3.2 - efficient general model (v25.06)"
-    capabilities: "⚡ Best for: Everyday tasks, cost-effective"
-    tags: ["mistral-small", "latest", "cost-effective"]
-    context_window: "128,000 tokens"
+    description: "Mistral Small 4 - hybrid instruct, reasoning, and coding model (v26.03)"
+    capabilities: "⚡ Best for: Everyday tasks, reasoning, coding, cost-effective"
+    tags: ["mistral-small", "latest", "cost-effective", "hybrid"]
+    context_window: "256,000 tokens"
     output_tokens: 8192
     supports_vision: true
     supports_grounding: false
-    input_per_1m: 0.10
-    output_per_1m: 0.30
+    input_per_1m: 0.15
+    output_per_1m: 0.60
 
   # === MINISTRAL EDGE MODELS ===
   ministral-3b-latest:
@@ -191,6 +191,19 @@ models:
     input_per_1m: 0.04
     output_per_1m: 0.04
 
+  voxtral-mini-tts-2603:
+    description: "Voxtral TTS - state-of-the-art TTS with zero-shot voice cloning (v26.03)"
+    capabilities: "🎤 Best for: Speech synthesis, voice cloning, multilingual TTS"
+    tags: ["voxtral", "audio", "tts", "latest"]
+    context_window: "32,000 tokens"
+    output_tokens: 0
+    supports_vision: false
+    supports_grounding: false
+    supports_audio: true
+    # Pricing: $16 per 1M output characters
+    input_per_1m: 0.00
+    output_per_1m: 16.00
+
   voxtral-mini-transcribe-realtime-26-02:
     description: "Voxtral Mini Transcribe Realtime - live transcription (Feb 2026)"
     capabilities: "🎤 Best for: Real-time transcription, live audio processing"
@@ -230,7 +243,18 @@ models:
     output_per_1m: 0.00
 
   mistral-moderation-latest:
-    description: "Content moderation model (v24.11)"
+    description: "Mistral Moderation 2 - latest moderation with jailbreaking detection (v26.03)"
+    capabilities: "🛡️ Best for: Content safety, jailbreaking detection, multilingual moderation"
+    tags: ["moderation", "safety", "latest"]
+    context_window: "128,000 tokens"
+    output_tokens: 0
+    supports_vision: false
+    supports_grounding: false
+    input_per_1m: 0.00
+    output_per_1m: 0.00
+
+  mistral-moderation-2411:
+    description: "Mistral Moderation 1 - previous content moderation model (v24.11)"
     capabilities: "🛡️ Best for: Content safety, harmful text detection"
     tags: ["moderation", "safety"]
     context_window: "8,000 tokens"
@@ -238,6 +262,18 @@ models:
     supports_vision: false
     supports_grounding: false
     input_per_1m: 0.10
+    output_per_1m: 0.00
+
+  # === FORMAL VERIFICATION ===
+  labs-leanstral-2603:
+    description: "Leanstral - open-source code agent for Lean 4 formal proof engineering (v26.03)"
+    capabilities: "🔬 Best for: Lean 4 formal proofs, theorem proving, formal verification"
+    tags: ["leanstral", "coding", "labs"]
+    context_window: "256,000 tokens"
+    output_tokens: 8192
+    supports_vision: false
+    supports_grounding: false
+    input_per_1m: 0.00
     output_per_1m: 0.00
 
   # === EMBEDDING MODELS ===
@@ -300,13 +336,17 @@ default_model: "mistral-large-latest"
 
 # Usage notes
 usage_notes:
+  - "Mistral Small 4 (v26.03): Hybrid instruct/reasoning/coding model ($0.15/$0.60 per 1M tokens)"
   - "Mistral Large 3 (v25.12): Latest flagship with vision ($0.50/$1.50 per 1M tokens)"
   - "Devstral 2 Medium ($0.40/$2.00), Devstral Small 2 ($0.10/$0.30) for agentic coding"
   - "Magistral models: Use prompt_mode='reasoning' for step-by-step thinking"
   - "Codestral: Supports FIM (fill-in-middle) for code completion"
+  - "Voxtral TTS (v26.03): Zero-shot voice cloning with multilingual support ($16/1M output chars)"
   - "Voxtral: Audio input for chat and transcription"
   - "Ministral: Edge-optimized models (3B, 8B, 14B) for high-volume tasks"
   - "OCR 3 (ocr-3-25-12): Latest document OCR, $2 per 1,000 pages"
   - "Voxtral Transcribe (26-02): Latest transcription models including realtime"
-  - "Context windows: Large/Ministral/Devstral/Magistral 256k, Codestral/Mistral-Medium/Small 128k, Voxtral 32k"
+  - "Mistral Moderation 2 (v26.03): 128K context, jailbreaking detection (free limited time)"
+  - "Leanstral (v26.03): Open-source Lean 4 formal proof engineering agent (free)"
+  - "Context windows: Large/Ministral/Devstral/Small4 256k, Codestral/Mistral-Medium/Magistral 128k, Voxtral 32k"
   - "Free tier available for experimentation"

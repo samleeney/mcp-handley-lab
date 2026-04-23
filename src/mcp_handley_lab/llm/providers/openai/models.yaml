@@ -26,6 +26,44 @@ models:
     cached_input_per_1m: 0.25
     supports_caching: true
 
+  gpt-5.4-mini:
+    # Model metadata
+    description: "Faster, cheaper version of GPT-5.4 for well-defined tasks"
+    capabilities: "⚖️ Best for: Most tasks, balanced performance and cost, 1M context"
+    tags: ["flagship", "latest", "general", "cost-effective", "vision"]
+    context_window: "1,050,000 tokens"
+    output_tokens: 128000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_vision: true
+    supports_reasoning: true
+    supports_verbosity: true
+
+    # Pricing (estimated based on 5.x mini pattern)
+    input_per_1m: 0.25
+    output_per_1m: 2.00
+    cached_input_per_1m: 0.025
+    supports_caching: true
+
+  gpt-5.4-nano:
+    # Model metadata
+    description: "Fastest, cheapest version of GPT-5.4 for quick tasks"
+    capabilities: "⚡ Best for: Quick tasks, high-volume processing, cost optimization, 1M context"
+    tags: ["flagship", "latest", "general", "fast", "cost-effective", "vision"]
+    context_window: "1,050,000 tokens"
+    output_tokens: 128000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_vision: true
+    supports_reasoning: true
+    supports_verbosity: true
+
+    # Pricing (estimated based on 5.x nano pattern)
+    input_per_1m: 0.05
+    output_per_1m: 0.40
+    cached_input_per_1m: 0.005
+    supports_caching: true
+
   gpt-5.4-pro:
     # Model metadata
     description: "Version of GPT-5.4 that uses more compute for deeper reasoning"
@@ -106,6 +144,25 @@ models:
     input_per_1m: 1.25
     output_per_1m: 10.00
     cached_input_per_1m: 0.125
+    supports_caching: true
+
+  gpt-5.1-mini:
+    # Model metadata
+    description: "Faster, cheaper version of GPT-5.1 for well-defined tasks"
+    capabilities: "⚖️ Best for: Most tasks, balanced performance and cost"
+    tags: ["flagship", "general", "cost-effective", "vision"]
+    context_window: "400,000 tokens"
+    output_tokens: 128000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_vision: true
+    supports_reasoning: true
+    supports_verbosity: true
+
+    # Pricing (estimated based on 5.x mini pattern)
+    input_per_1m: 0.25
+    output_per_1m: 2.00
+    cached_input_per_1m: 0.025
     supports_caching: true
 
   gpt-5:
@@ -268,6 +325,24 @@ models:
     input_per_1m: 1.25
     output_per_1m: 10.00
     cached_input_per_1m: 0.125
+    supports_caching: true
+
+  codex-mini-latest:
+    # Model metadata
+    description: "Lightweight Codex model for fast agentic coding tasks"
+    capabilities: "💻 Best for: Fast code generation, lightweight agentic coding"
+    tags: ["codex", "coding", "latest", "cost-effective"]
+    context_window: "400,000 tokens"
+    output_tokens: 128000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_vision: true
+    supports_reasoning: true
+
+    # Pricing (estimated based on mini pattern)
+    input_per_1m: 0.25
+    output_per_1m: 2.00
+    cached_input_per_1m: 0.025
     supports_caching: true
 
   o3:
@@ -817,6 +892,9 @@ usage_notes:
   - "GPT-5.4 supports reasoning effort levels: none (default), low, medium, high, xhigh"
   - "GPT-5.4 supports verbosity control: low (concise), medium (default), high (thorough)"
   - "GPT-5.4 has 1,050,000 token context window; GPT-5/5.1/5.2 have 400K context"
+  - "GPT-5.4 Mini and Nano: Cost-effective 1M context variants of GPT-5.4"
+  - "GPT-5.1 Mini: Cost-effective variant of GPT-5.1"
+  - "codex-mini-latest: Lightweight Codex model for fast agentic coding"
   - "GPT-5 models support cached input pricing for cost optimization (90% discount)"
   - "Flagship models (GPT-5 series) support temperature only when reasoning_effort='none'"
   - "Reasoning models (o1, o3, o4) don't support temperature parameter"

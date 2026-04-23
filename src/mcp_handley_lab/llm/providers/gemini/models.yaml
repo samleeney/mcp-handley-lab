@@ -348,12 +348,156 @@ models:
     price_per_second: 0.35
     pricing_type: "per_second"
 
-  # Deep research agents
-  gemini-deep-research:
+  # Live API models
+  gemini-3.1-flash-live-preview:
     # Model metadata
-    description: "Deep research agent - autonomous web research and synthesis"
+    description: "High-quality, low-latency Live API model for real-time dialogue and voice-first AI"
+    capabilities: "🎤 Best for: Real-time dialogue, voice-first AI, audio-to-audio"
+    tags: ["gemini-3.1", "flash", "live", "audio"]
+    context_window: "131,072 tokens"
+    output_tokens: 65536
+
+    # Capabilities
+    supports_vision: true
+    supports_grounding: true
+    supports_thinking_level: true
+
+    # Pricing
+    input_by_modality:
+      text: 0.75
+      image: 1.00
+      audio: 3.00
+    output_by_modality:
+      text: 4.50
+      audio: 12.00
+
+  # TTS models
+  gemini-3.1-flash-tts-preview:
+    # Model metadata
+    description: "Powerful, low-latency speech generation with expressive audio tags"
+    capabilities: "🎤 Best for: Speech synthesis, narration, expressive TTS"
+    tags: ["gemini-3.1", "flash", "tts", "audio"]
+    context_window: "8,192 tokens"
+    output_tokens: 16384
+
+    # Capabilities
+    supports_vision: false
+    supports_grounding: false
+
+    # Pricing
+    input_per_1m: 0.00
+    output_per_1m: 20.00
+
+  # Video generation models (additional)
+  veo-3.1-lite-generate-preview:
+    # Model metadata
+    description: "High-efficiency, low-cost video generation from the Veo 3.1 family"
+    capabilities: "🎬 Best for: Cost-effective video generation, high-volume video workflows"
+    tags: ["video-generation", "cost-effective"]
+    context_window: "N/A (Video generation)"
+
+    # Capabilities
+    supports_vision: false
+    supports_grounding: false
+
+    # Pricing (per second)
+    price_per_second_720p: 0.05
+    price_per_second_1080p: 0.08
+    pricing_type: "per_second"
+
+  # Music generation models
+  lyria-3-pro-preview:
+    # Model metadata
+    description: "Flagship music generation model for full-length songs with structural coherence"
+    capabilities: "🎵 Best for: Full-length song generation, complex musical compositions"
+    tags: ["music-generation", "latest"]
+    context_window: "N/A (Music generation)"
+
+    # Capabilities
+    supports_vision: false
+    supports_grounding: false
+
+    # Pricing (per request)
+    price_per_request: 0.08
+    pricing_type: "per_request"
+
+  lyria-3-clip-preview:
+    # Model metadata
+    description: "Music generation model for short clips, loops, and previews up to 30 seconds"
+    capabilities: "🎵 Best for: Short music clips, loops, musical previews"
+    tags: ["music-generation", "cost-effective"]
+    context_window: "N/A (Music generation)"
+
+    # Capabilities
+    supports_vision: false
+    supports_grounding: false
+
+    # Pricing (per request)
+    price_per_request: 0.04
+    pricing_type: "per_request"
+
+  # Embedding models
+  gemini-embedding-2:
+    # Model metadata
+    description: "First multimodal embedding model supporting text, images, video, audio, and PDFs"
+    capabilities: "🔍 Best for: Multimodal semantic search, RAG, cross-modal retrieval"
+    tags: ["embedding", "multimodal", "latest"]
+    context_window: "8,192 tokens"
+    output_tokens: 0
+
+    # Capabilities
+    supports_vision: true
+    supports_grounding: false
+    embedding_dimensions: 3072
+
+    # Pricing
+    input_per_1m: 0.00
+    output_per_1m: 0.00
+
+  # Deep research agents
+  deep-research-preview-04-2026:
+    # Model metadata
+    description: "Deep research agent - autonomous multi-step web research and synthesis"
     capabilities: "🔬 Best for: Complex research questions, literature reviews, market analysis"
     tags: ["research", "agent", "latest"]
+    best_for: "Complex research questions, literature reviews, market analysis"
+    context_window: "1,048,576 tokens"
+    output_tokens: 65536
+
+    # Agent configuration
+    is_agent: true
+
+    # Capabilities
+    supports_vision: true
+
+    # Pricing (per request)
+    pricing_type: "per_request"
+    price_per_request: 3.00
+
+  deep-research-max-preview-04-2026:
+    # Model metadata
+    description: "Maximum comprehensiveness deep research for automated context gathering"
+    capabilities: "🔬 Best for: Accuracy-critical investigations, comprehensive synthesis across hundreds of sources"
+    tags: ["research", "agent", "premium"]
+    best_for: "Accuracy-critical investigations, comprehensive multi-source synthesis"
+    context_window: "1,048,576 tokens"
+    output_tokens: 65536
+
+    # Agent configuration
+    is_agent: true
+
+    # Capabilities
+    supports_vision: true
+
+    # Pricing (per request)
+    pricing_type: "per_request"
+    price_per_request: 5.00
+
+  gemini-deep-research:
+    # Model metadata
+    description: "Deep research agent - autonomous web research and synthesis (legacy alias)"
+    capabilities: "🔬 Best for: Complex research questions, literature reviews, market analysis"
+    tags: ["research", "agent"]
     best_for: "Complex research questions, literature reviews, market analysis"
     context_window: "Unlimited (web)"
     output_tokens: 100000
@@ -383,9 +527,18 @@ display_categories:
     tags: ["image-generation"]
     exclude_tags: ["multimodal"]
     description: "Dedicated image generation models (Imagen 4)"
+  - name: "🎤 Audio & Live API"
+    tags: ["audio"]
+    description: "Live API and TTS models for real-time dialogue and speech synthesis"
   - name: "🎬 Video Generation"
     tags: ["video-generation"]
     description: "Video content creation models"
+  - name: "🎵 Music Generation"
+    tags: ["music-generation"]
+    description: "Lyria models for music and audio content creation"
+  - name: "🔍 Embeddings"
+    tags: ["embedding"]
+    description: "Embedding models for semantic search and RAG"
   - name: "🔬 Research Agents"
     tags: ["research"]
     description: "Autonomous deep research agents for complex investigations"
@@ -417,4 +570,12 @@ usage_notes:
   - "Nano Banana (gemini-2.5-flash-image): Native image generation and editing"
   - "Imagen 4 models charge per image ($0.02-$0.06)"
   - "Veo 3.1: State-of-the-art video generation with native audio ($0.75/sec)"
+  - "Veo 3.1 Lite: Cost-effective video generation ($0.05/sec 720p, $0.08/sec 1080p)"
   - "Veo 2.0: Previous generation video ($0.35/sec)"
+  - "Gemini 3.1 Flash Live: Real-time audio-to-audio for voice-first AI applications"
+  - "Gemini 3.1 Flash TTS: Low-latency speech generation with expressive audio tags ($20/1M output tokens)"
+  - "Lyria 3 Pro: Full-length music generation ($0.08/song)"
+  - "Lyria 3 Clip: Short music clips and loops ($0.04/clip)"
+  - "Gemini Embedding 2: First multimodal embedding model (text, images, video, audio, PDFs)"
+  - "Deep Research Preview (04-2026): Latest deep research agent with collaborative planning and MCP support"
+  - "Deep Research Max Preview: Maximum comprehensiveness for accuracy-critical investigations"

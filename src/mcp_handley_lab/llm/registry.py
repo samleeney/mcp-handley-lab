@@ -17,6 +17,8 @@ MODEL_PREFIXES = [
     ("gemini-", "gemini"),
     ("imagen-", "gemini"),
     ("veo-", "gemini"),
+    ("lyria-", "gemini"),
+    ("deep-research-", "gemini"),
     # OpenAI
     ("gpt-image", "openai"),
     ("gpt-", "openai"),
@@ -24,6 +26,7 @@ MODEL_PREFIXES = [
     ("sora-", "openai"),
     ("dall-e", "openai"),
     ("text-embedding", "openai"),
+    ("codex-", "openai"),
     ("o3", "openai"),
     ("o4", "openai"),
     # Claude
@@ -36,6 +39,7 @@ MODEL_PREFIXES = [
     ("magistral", "mistral"),
     ("voxtral", "mistral"),
     ("ocr-", "mistral"),
+    ("labs-leanstral", "mistral"),
     ("mistral-", "mistral"),
     ("mistral-embed", "mistral"),
     # Grok
@@ -48,8 +52,8 @@ MODEL_PREFIXES = [
 # Model aliases (shorthand → full model ID)
 MODEL_ALIASES = {
     # Claude shorthand aliases
-    "opus": "claude-opus-4-5-20251101",
-    "sonnet": "claude-sonnet-4-5-20250929",
+    "opus": "claude-opus-4-7",
+    "sonnet": "claude-sonnet-4-6",
     "haiku": "claude-haiku-4-5-20251001",
     # Gemini shorthand aliases
     "deep-research": "gemini-deep-research",
