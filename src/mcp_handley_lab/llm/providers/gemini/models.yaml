@@ -252,6 +252,18 @@ models:
       image: 0.30
     output_per_1m: 60.00
 
+  nano-banana-pro-preview:
+    # Model metadata
+    description: "Native image generation model for Gemini ecosystem"
+    capabilities: "🎨 Best for: Image generation with Pro-level quality"
+    tags: ["image-generation", "preview"]
+    context_window: "N/A (Image generation)"
+
+    # Capabilities
+    supports_vision: true
+    supports_grounding: false
+    supports_image_generation: true
+
   # Imagen models
   imagen-4.0-generate-001:
     # Model metadata
@@ -387,6 +399,51 @@ models:
     # Pricing
     input_per_1m: 0.00
     output_per_1m: 20.00
+
+  veo-3.0-generate-001:
+    # Model metadata
+    description: "Veo 3.0 video generation with improved quality"
+    capabilities: "🎬 Best for: High-quality video creation"
+    tags: ["video-generation"]
+    context_window: "N/A (Video generation)"
+
+    # Capabilities
+    supports_vision: false
+    supports_grounding: false
+
+    # Pricing (per second)
+    price_per_second: 0.50
+    pricing_type: "per_second"
+
+  veo-3.0-fast-generate-001:
+    # Model metadata
+    description: "Veo 3.0 Fast video generation"
+    capabilities: "⚡ Best for: Quick video generation"
+    tags: ["video-generation", "fast"]
+    context_window: "N/A (Video generation)"
+
+    # Capabilities
+    supports_vision: false
+    supports_grounding: false
+
+    # Pricing (per second)
+    price_per_second: 0.25
+    pricing_type: "per_second"
+
+  veo-3.1-fast-generate-preview:
+    # Model metadata
+    description: "Veo 3.1 Fast preview video generation"
+    capabilities: "⚡ Best for: Fast video generation with Veo 3.1 quality"
+    tags: ["video-generation", "fast", "preview"]
+    context_window: "N/A (Video generation)"
+
+    # Capabilities
+    supports_vision: false
+    supports_grounding: false
+
+    # Pricing (per second)
+    price_per_second: 0.35
+    pricing_type: "per_second"
 
   # Video generation models (additional)
   veo-3.1-lite-generate-preview:
