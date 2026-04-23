@@ -313,21 +313,27 @@ models:
     pricing_type: "per_image"
     quality: "ultra"
 
-  imagen-4.0-generate-preview-06-06:
-    # Model metadata
-    description: "Preview version of Imagen 4 (standard quality)"
-    capabilities: "🎨 Best for: Testing Imagen 4 features (preview)"
-    tags: ["image-generation", "preview"]
-    context_window: "N/A (Image generation)"
+  # Audio models
+  gemini-2.5-flash-native-audio-latest:
+    description: "Gemini 2.5 Flash with native audio generation"
+    tags: ["gemini-2.5", "flash", "audio", "native"]
+    context_window: "1,000,000 tokens"
 
-    # Capabilities
-    supports_vision: false
-    supports_grounding: false
+  # Convenience aliases
+  gemini-flash-latest:
+    description: "Alias for latest Gemini Flash model"
+    tags: ["alias", "flash", "latest"]
+    context_window: "1,000,000 tokens"
 
-    # Pricing (per image) - same as standard Imagen 4
-    price_per_image: 0.040
-    pricing_type: "per_image"
-    quality: "standard"
+  gemini-flash-lite-latest:
+    description: "Alias for latest Gemini Flash Lite model"
+    tags: ["alias", "flash", "lite", "latest"]
+    context_window: "1,000,000 tokens"
+
+  gemini-pro-latest:
+    description: "Alias for latest Gemini Pro model"
+    tags: ["alias", "pro", "latest"]
+    context_window: "1,000,000 tokens"
 
   # Video generation models
   veo-3.1-generate-preview:
