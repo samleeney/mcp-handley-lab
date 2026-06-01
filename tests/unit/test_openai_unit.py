@@ -68,6 +68,7 @@ class TestOpenAIModelConfiguration:
             "gpt-4o-transcribe",
             "gpt-4o-mini-transcribe",
             # Realtime API
+            "gpt-realtime-2",
             "gpt-realtime-1.5",
             "gpt-realtime-mini",
             "gpt-4o-realtime-preview",

@@ -37,7 +37,7 @@ llm_providers = [
     pytest.param(
         "grok",
         "XAI_API_KEY",
-        "grok-3-mini",
+        "grok-4.3",
         "7+1",
         "8",
         id="grok",
@@ -69,7 +69,7 @@ image_providers = [
     pytest.param(
         "grok",
         "XAI_API_KEY",
-        "grok-2-vision-1212",
+        "grok-4.3",
         id="grok",
         marks=pytest.mark.skip(
             reason="Grok uses gRPC (no VCR cassettes) - consume tokens without recording benefit"
@@ -385,7 +385,7 @@ error_scenarios = [
     pytest.param(
         "grok",
         "XAI_API_KEY",
-        "grok-3-mini",
+        "grok-4.3",
         "invalid-model-name-that-does-not-exist",
         "model",
         id="grok-invalid-model",

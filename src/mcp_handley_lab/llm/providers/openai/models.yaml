@@ -814,11 +814,33 @@ models:
     # NOTE: Audio output handling not fully implemented
 
   # Realtime API Models
+  gpt-realtime-2:
+    # Model metadata
+    description: "Latest realtime API model with reasoning for low-latency multimodal experiences"
+    capabilities: "🔴 Best for: Voice assistants, real-time audio/text/image interaction with reasoning"
+    tags: ["realtime", "audio", "multimodal", "latest"]
+    context_window: "128,000 tokens"
+    output_tokens: 4096
+    param: "max_output_tokens"
+    supports_temperature: true
+    supports_vision: true
+
+    # Pricing (per token, per modality)
+    text_input_per_1m: 4.00
+    text_output_per_1m: 24.00
+    audio_input_per_1m: 32.00
+    audio_output_per_1m: 64.00
+    image_input_per_1m: 5.00
+    cached_text_input_per_1m: 0.40
+    cached_audio_input_per_1m: 0.40
+    cached_image_input_per_1m: 0.50
+    pricing_type: "realtime"
+
   gpt-realtime-1.5:
     # Model metadata
-    description: "Latest realtime API model for low-latency multimodal experiences"
+    description: "Realtime API model for low-latency multimodal experiences"
     capabilities: "🔴 Best for: Voice assistants, real-time audio/text/image interaction"
-    tags: ["realtime", "audio", "multimodal", "latest"]
+    tags: ["realtime", "audio", "multimodal"]
     context_window: "128,000 tokens"
     output_tokens: 4096
     param: "max_output_tokens"
@@ -1001,7 +1023,7 @@ usage_notes:
   - "Cached input pricing available via Responses API"
   - "Fine-tuning models have separate training costs"
   - "Built-in tools have additional per-use charges"
-  - "Realtime API: gpt-realtime-1.5 (current), gpt-realtime-mini (cost-effective), gpt-4o-realtime-preview (legacy)"
+  - "Realtime API: gpt-realtime-2 (current, with reasoning), gpt-realtime-1.5, gpt-realtime-mini (cost-effective), gpt-4o-realtime-preview (legacy)"
   - "Priority processing offers reliable, high-speed performance with pay-as-you-go"
   - "Web search content tokens: free for gpt-4o/4.1 preview, fixed 8K block for mini models"
   - "TTS models: tts-1 ($15/M chars), tts-1-hd ($30/M chars)"

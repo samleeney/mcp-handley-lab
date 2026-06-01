@@ -363,7 +363,7 @@ def generate_image(
         description="File path to save the generated image. Nano Banana outputs JPEG, Imagen outputs PNG.",
     ),
     model: str = Field(
-        default="gemini-3-pro-image-preview",
+        default="gemini-3-pro-image",
         description="Image model. Provider auto-detected from name.",
     ),
     input_images: list[str] = Field(

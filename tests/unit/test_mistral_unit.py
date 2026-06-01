@@ -20,11 +20,7 @@ class TestModelConfiguration:
             ("mistral-small-latest", 8192),
             ("ministral-3b-latest", 8192),
             ("ministral-8b-latest", 8192),
-            ("magistral-medium-latest", 40000),
-            ("magistral-small-latest", 40000),
             ("codestral-latest", 8192),
-            ("devstral-small-latest", 8192),
-            ("pixtral-large-latest", 8192),
             ("voxtral-small-latest", 8192),
             ("voxtral-mini-latest", 8192),
             ("mistral-ocr-latest", 0),
@@ -50,20 +46,14 @@ class TestModelConfiguration:
             "ministral-3b-latest",
             "ministral-8b-latest",
             "ministral-14b-latest",
-            # Reasoning (Magistral)
-            "magistral-medium-latest",
-            "magistral-small-latest",
             # Coding
             "codestral-latest",
-            "devstral-medium-latest",
-            "devstral-small-latest",
-            # Vision (Pixtral)
-            "pixtral-large-latest",
             # Audio (Voxtral)
             "voxtral-small-latest",
             "voxtral-mini-latest",
             "voxtral-mini-transcribe-26-02",
             "voxtral-mini-transcribe-realtime-26-02",
+            "voxtral-tts-latest",
             # Specialist
             "mistral-ocr-latest",
             "ocr-3-25-12",
@@ -81,7 +71,7 @@ class TestModelConfiguration:
         "model_name,expected_output_tokens",
         [
             ("mistral-large-latest", 8192),
-            ("magistral-medium-latest", 40000),
+            ("mistral-medium-latest", 8192),
             ("codestral-latest", 8192),
         ],
     )
@@ -113,7 +103,6 @@ class TestModelConfiguration:
             "mistral-small-latest",
             "ministral-3b-latest",
             "ministral-8b-latest",
-            "pixtral-large-latest",
             "mistral-ocr-latest",
         ]
         for model_id in vision_models:
@@ -124,7 +113,7 @@ class TestModelConfiguration:
 
     def test_reasoning_models_have_supports_reasoning(self):
         """Test that reasoning models have supports_reasoning flag."""
-        reasoning_models = ["magistral-medium-latest", "magistral-small-latest"]
+        reasoning_models = ["mistral-medium-latest", "mistral-small-latest"]
         for model_id in reasoning_models:
             config = MODEL_CONFIGS[model_id]
             assert config.get("supports_reasoning") is True, (
@@ -142,7 +131,7 @@ class TestModelConfiguration:
 
     def test_fim_models_have_supports_fim(self):
         """Test that FIM-capable models have supports_fim flag."""
-        fim_models = ["codestral-latest", "devstral-small-latest"]
+        fim_models = ["codestral-latest"]
         for model_id in fim_models:
             config = MODEL_CONFIGS[model_id]
             assert config.get("supports_fim") is True, (

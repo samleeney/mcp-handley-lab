@@ -45,7 +45,7 @@ system_prompt_providers = [
     pytest.param(
         "grok",
         "XAI_API_KEY",
-        "grok-3-mini",
+        "grok-4.3",
         id="grok",
         marks=pytest.mark.skip(reason="Grok uses gRPC (no VCR cassettes)"),
     ),
@@ -82,7 +82,7 @@ image_analysis_providers = [
     pytest.param(
         "grok",
         "XAI_API_KEY",
-        "grok-2-vision-1212",
+        "grok-4.3",
         id="grok",
         marks=pytest.mark.skip(reason="Grok uses gRPC (no VCR cassettes)"),
     ),

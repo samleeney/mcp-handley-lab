@@ -70,6 +70,39 @@ models:
     input_per_1m: 0.075
     output_per_1m: 0.30
 
+  # Agentic Systems (Production)
+  groq/compound:
+    description: "Groq agentic system combining LLMs with web search and code execution tools."
+    capabilities: "Best for: Agentic workflows, web search, code execution, multi-step tasks."
+    tags: ["compound", "agentic", "production"]
+    context_window: "131,072 tokens"
+    output_tokens: 8192
+    param: "max_tokens"
+    supports_temperature: true
+    supports_vision: false
+    supports_tool_calling: true
+    supports_system_prompt: true
+    # Passthrough billing: underlying model tokens + per-request tool fees
+    # (Basic Search $5/1k, Advanced Search $8/1k, Visit Website $1/1k,
+    #  Code Execution $0.18/hr, Browser Automation $0.08/hr). Free tier in practice.
+    input_per_1m: 0.0
+    output_per_1m: 0.0
+
+  groq/compound-mini:
+    description: "Lightweight Groq agentic system with web search and code execution tools."
+    capabilities: "Best for: Fast agentic tasks, web search, code execution, cost-effective workflows."
+    tags: ["compound", "agentic", "production"]
+    context_window: "131,072 tokens"
+    output_tokens: 8192
+    param: "max_tokens"
+    supports_temperature: true
+    supports_vision: false
+    supports_tool_calling: true
+    supports_system_prompt: true
+    # Passthrough billing: underlying model tokens + per-request tool fees. Free tier in practice.
+    input_per_1m: 0.0
+    output_per_1m: 0.0
+
   # Preview Models
   meta-llama/llama-4-scout-17b-16e-instruct:
     description: "Meta's Llama 4 Scout 17B with 16 experts - efficient multimodal model."
@@ -208,6 +241,9 @@ display_categories:
   - name: "OpenAI GPT-OSS Models"
     tags: ["gpt-oss"]
     description: "OpenAI's open-weight GPT models."
+  - name: "🤖 Agentic Systems"
+    tags: ["compound", "agentic"]
+    description: "Groq compound systems with built-in web search and code execution."
   - name: "Qwen Models"
     tags: ["qwen"]
     description: "Alibaba's Qwen multilingual models."
@@ -227,6 +263,7 @@ usage_notes:
   - "Llama 4 Scout (17B/16E) supports vision/multimodal inputs."
   - "Context windows: Most models support 131K tokens."
   - "Preview models may be deprecated with short notice."
+  - "groq/compound and groq/compound-mini are agentic systems with built-in web search and code execution; billed as underlying-model tokens plus per-request tool fees, $0 in practice on the free tier."
   - "TTS models: Orpheus English ($22/M chars), Orpheus Arabic ($40/M chars)"
   - "ASR models: Whisper v3 ($0.111/hr), Whisper Turbo ($0.04/hr) - billed min 10s"
   - "⚠️ Audio I/O handling not fully implemented - models listed for completeness"

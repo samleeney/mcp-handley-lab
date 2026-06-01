@@ -67,7 +67,7 @@ class TestLoadModelConfig:
         assert "claude-opus-4-5-20251101" in config["models"]
 
         # Verify default model
-        assert config["default_model"] == "claude-opus-4-7"
+        assert config["default_model"] == "claude-opus-4-8"
 
     def test_load_model_config_nonexistent_provider(self):
         """Test loading configuration for non-existent provider."""
@@ -237,7 +237,7 @@ class TestFormatModelListing:
 
         # Check summary section
         assert "Claude Model Summary" in listing
-        assert "Default Model: claude-opus-4-7" in listing
+        assert "Default Model: claude-opus-4-8" in listing
 
         # Check model categories
         assert "🚀 Claude 4.5 Series" in listing

@@ -156,7 +156,7 @@ async def test_mistral_chat_different_models(skip_if_no_api_key, test_output_fil
     models_to_test = [
         "mistral-small-latest",
         "mistral-large-latest",
-        "pixtral-large-latest",
+        "mistral-medium-latest",
     ]
 
     for model in models_to_test:
