@@ -1,4 +1,21 @@
 models:
+  gemini-3.5-flash:
+    # Model metadata
+    description: "Most intelligent Gemini Flash model for sustained frontier performance on agentic and coding tasks"
+    capabilities: "🌟 Best for: Agentic workflows, coding, complex reasoning at Flash speed"
+    tags: ["gemini-3.5", "flash", "latest", "multimodal", "reasoning"]
+    context_window: "1,000,000 tokens"
+    output_tokens: 65536
+
+    # Capabilities
+    supports_vision: true
+    supports_grounding: true
+    supports_thinking_level: true
+
+    # Pricing
+    input_per_1m: 1.50
+    output_per_1m: 9.00
+
   gemini-3.1-pro-preview:
     # Model metadata
     description: "Most intelligent Gemini model with advanced reasoning and precise tool usage"
@@ -53,7 +70,7 @@ models:
       - threshold: .inf
         price: 18.00
 
-  gemini-3.1-flash-lite-preview:
+  gemini-3.1-flash-lite:
     # Model metadata
     description: "Cost-effective Gemini 3.1 Flash Lite model for fast, high-volume tasks"
     capabilities: "⚡ Best for: High-volume tasks, cost-sensitive applications, fast inference"
@@ -111,9 +128,9 @@ models:
       audio: 1.00
     output_per_1m: 3.00
 
-  gemini-3-pro-image-preview:
+  gemini-3-pro-image:
     # Model metadata
-    description: "Gemini 3 Pro with native multimodal image generation capabilities"
+    description: "Nano Banana Pro - Gemini 3 Pro with native multimodal image generation capabilities"
     capabilities: "🎨 Best for: Native image generation, multimodal creation, text-to-image"
     tags: ["gemini-3", "pro", "image-generation", "multimodal"]
     context_window: "1,000,000 tokens"
@@ -207,7 +224,7 @@ models:
     free_tier: true
 
   # Native image generation models (Nano Banana family)
-  gemini-3.1-flash-image-preview:
+  gemini-3.1-flash-image:
     # Model metadata
     description: "Nano Banana 2 - high-efficiency image generation at Flash speed"
     capabilities: "🎨 Best for: High-volume image generation, fast iteration, text rendering"
@@ -361,9 +378,12 @@ models:
 
 # Display categories (how to group models by tags for presentation)
 display_categories:
+  - name: "🌟 Gemini 3.5 Series"
+    tags: ["gemini-3.5"]
+    description: "Newest GA Flash model for frontier agentic and coding performance"
   - name: "🌟 Gemini 3.1 Series"
     tags: ["gemini-3.1"]
-    description: "Latest generation with advanced reasoning and precise tool usage (recommended)"
+    description: "Advanced reasoning and precise tool usage (Pro recommended)"
   - name: "⭐ Gemini 3 Series"
     tags: ["gemini-3"]
     description: "Previous generation with strong reasoning and multimodal capabilities"
@@ -390,12 +410,13 @@ default_model: "gemini-3.1-pro-preview"
 # Usage notes
 usage_notes:
   - "Gemini 3.1 Pro Preview is the recommended default for best performance"
+  - "Gemini 3.5 Flash (GA) is the newest flagship Flash model for agentic and coding tasks ($1.50/$9.00 per 1M tokens)"
   - "Gemini 3.1 Pro supports thinking_level (low/medium/high) for controlling reasoning depth"
   - "Gemini 3.1 Pro supports media_resolution for multimodal vision control"
   - "Gemini 3.1 Pro uses thought signatures for maintaining reasoning context"
   - "Gemini 3.1 Pro Preview has a customtools variant optimized for tool use and bash"
   - "Gemini 3 Flash Preview offers fast inference with Gemini 3 capabilities"
-  - "Gemini 3 Pro Image Preview supports native multimodal image generation"
+  - "Nano Banana Pro (gemini-3-pro-image) supports native multimodal image generation"
   - "All Gemini 3+ models have 1M token context window"
   - "Gemini 3+ models default to temperature 1.0 (strongly recommended per documentation)"
   - "Gemini 2.5 Pro, Flash, and Flash-Lite have free tiers available"
@@ -405,9 +426,9 @@ usage_notes:
   - "Audio input has higher costs than text/image/video for Flash models"
   - "Tiered pricing applies to Pro models based on token count thresholds"
   - "Google Search grounding: 1,500 RPD free, then additional charges apply"
-  - "Gemini 3.1 Flash Lite Preview: Cost-effective model ($0.25/$1.50 per 1M tokens)"
+  - "Gemini 3.1 Flash Lite (GA): Cost-effective model ($0.25/$1.50 per 1M tokens)"
   - "Gemini 3.1 Flash Live Preview: Audio-to-audio realtime model (text $0.75/M, audio $3/M)"
-  - "Nano Banana 2 (gemini-3.1-flash-image-preview): Fast image gen ~$0.045-$0.15/image depending on resolution"
+  - "Nano Banana 2 (gemini-3.1-flash-image): Fast image gen ~$0.045-$0.15/image depending on resolution"
   - "Nano Banana (gemini-2.5-flash-image): Native image generation and editing"
   - "Imagen 4 models charge per image ($0.02-$0.06)"
   - "Veo 3.1: State-of-the-art video generation with native audio ($0.75/sec)"

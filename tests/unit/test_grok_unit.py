@@ -13,41 +13,27 @@ class TestGrokModelConfiguration:
     def test_model_configs_all_present(self):
         """Test that all expected Grok models are in MODEL_CONFIGS."""
         expected_models = {
+            "grok-4.3",
             "grok-4.20-0309-reasoning",
             "grok-4.20-0309-non-reasoning",
             "grok-4.20-multi-agent-0309",
-            "grok-4-1-fast-reasoning",
-            "grok-4-1-fast-non-reasoning",
-            "grok-4-fast-reasoning",
-            "grok-4-fast-non-reasoning",
-            "grok-4-0709",
-            "grok-3",
-            "grok-3-mini",
-            "grok-2-vision-1212",
-            "grok-2-image-1212",
-            "grok-code-fast-1",
+            "grok-build-0.1",
             "grok-imagine-image",
-            "grok-imagine-image-pro",
+            "grok-imagine-image-quality",
             "grok-imagine-video",
+            "grok-imagine-video-1.5-preview",
         }
         assert set(MODEL_CONFIGS.keys()) == expected_models
 
     def test_model_configs_token_limits(self):
         """Test that model configurations have correct token limits."""
-        # Grok 4 series
-        assert MODEL_CONFIGS["grok-4-fast-reasoning"]["output_tokens"] == 100000
-        assert MODEL_CONFIGS["grok-4-fast-non-reasoning"]["output_tokens"] == 100000
-        assert MODEL_CONFIGS["grok-4-0709"]["output_tokens"] == 100000
+        # Grok 4 text models
+        assert MODEL_CONFIGS["grok-4.3"]["output_tokens"] == 100000
+        assert MODEL_CONFIGS["grok-4.20-0309-reasoning"]["output_tokens"] == 100000
+        assert MODEL_CONFIGS["grok-build-0.1"]["output_tokens"] == 100000
 
-        # Grok 3 series
-        assert MODEL_CONFIGS["grok-3"]["output_tokens"] == 65536
-        assert MODEL_CONFIGS["grok-3-mini"]["output_tokens"] == 65536
-
-        # Grok 2 series (text models) - 32K context per official pricing
-        assert MODEL_CONFIGS["grok-2-vision-1212"]["output_tokens"] == 32768
-
-        # Grok 2 image generation model has None (doesn't use token limits)
-        assert MODEL_CONFIGS["grok-2-image-1212"]["output_tokens"] is None
+        # Image generation models have None (don't use token limits)
+        assert MODEL_CONFIGS["grok-imagine-image"]["output_tokens"] is None
 
     def test_model_configs_structure(self):
         """Test that model configurations have required structure."""
@@ -61,7 +47,7 @@ class TestGrokModelConfiguration:
 
     def test_get_model_config_valid_model(self):
         """Test get_model_config with valid model names."""
-        config = get_model_config("grok-4-fast-reasoning")
+        config = get_model_config("grok-4.3")
         assert config["output_tokens"] == 100000
 
     def test_get_model_config_fallback_to_default(self):
@@ -85,7 +71,7 @@ class TestGrokErrorHandling:
         """Test that all model configs have basic required fields."""
         for model_name, config in MODEL_CONFIGS.items():
             assert "output_tokens" in config, f"Missing output_tokens in {model_name}"
-            # Allow None for image generation models (like grok-2-image-1212)
+            # Allow None for image generation models (like grok-imagine-image)
             output_tokens = config["output_tokens"]
             assert output_tokens is None or isinstance(output_tokens, int), (
                 f"Invalid output_tokens type in {model_name}: {type(output_tokens)}"
@@ -93,4 +79,4 @@ class TestGrokErrorHandling:
 
     def test_model_count_matches_expected(self):
         """Test that we have the expected number of models."""
-        assert len(MODEL_CONFIGS) == 16
+        assert len(MODEL_CONFIGS) == 9
