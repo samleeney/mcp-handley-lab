@@ -11,7 +11,11 @@ from pydantic import Field
 
 from mcp_handley_lab.common.process import run_command
 from mcp_handley_lab.common.terminal import launch_interactive
-from mcp_handley_lab.email.common import _list_accounts, mcp
+from mcp_handley_lab.email.common import (
+    _get_account_from_addr,
+    _list_accounts,
+    mcp,
+)
 from mcp_handley_lab.email.mutt.capture_utils import (
     CAPTURE_WARNING_DEFAULT,
     CAPTURE_WARNINGS,
@@ -139,9 +143,18 @@ def _build_mutt_command(
     temp_file_path: str | None = None,
     in_reply_to: str | None = None,
     references: str | None = None,
+    account: str | None = None,
+    from_addr: str | None = None,
 ) -> list[str]:
     """Build mutt command with proper arguments."""
     mutt_cmd = ["mutt"]
+
+    # Send from a specific msmtp account: set the From header and route outgoing
+    # mail through `msmtp -a <account>`, overriding the muttrc default account.
+    if account:
+        mutt_cmd.extend(["-e", f'set sendmail="msmtp -a {account}"'])
+        if from_addr:
+            mutt_cmd.extend(["-e", f'set from="{from_addr}"', "-e", "set use_from=yes"])
 
     if reply_all:
         mutt_cmd.extend(["-e", "set reply_to_all=yes"])
@@ -268,10 +281,23 @@ def _compose_email(
     if cc:
         recipients.extend(_extract_addr_specs(cc))
 
+    # Resolve the From address for the requested msmtp account (if any).
+    from_addr = ""
+    if account:
+        accounts = _list_accounts()
+        if account not in accounts:
+            raise ValueError(
+                f"Unknown msmtp account '{account}'. "
+                f"Available: {', '.join(accounts) or '(none)'}"
+            )
+        from_addr = _get_account_from_addr(account)
+
     # Build mutt command with draft file
     mutt_cmd = _build_mutt_command(
         attachments=attachments,
         temp_file_path=temp_file_path,
+        account=account or None,
+        from_addr=from_addr or None,
     )
 
     window_title = f"Mutt: {subject or 'New Email'}"
