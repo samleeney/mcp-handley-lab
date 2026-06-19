@@ -1,9 +1,42 @@
 """Terminal utilities for launching interactive applications."""
 
-import contextlib
 import os
 import subprocess
-import uuid
+
+TMUX_POPUP_WIDTH = "90%"
+TMUX_POPUP_HEIGHT = "90%"
+
+
+def _tmux_client_available() -> bool:
+    """Return True when a tmux client can receive interactive UI."""
+    try:
+        subprocess.run(
+            ["tmux", "display-message", "-p", "#{client_tty}"],
+            capture_output=True,
+            check=True,
+            text=True,
+        )
+        return True
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return False
+
+
+def _tmux_popup_command(command: str, window_title: str | None = None) -> list[str]:
+    """Build a tmux popup command for an interactive process."""
+    tmux_cmd = [
+        "tmux",
+        "display-popup",
+        "-w",
+        TMUX_POPUP_WIDTH,
+        "-h",
+        TMUX_POPUP_HEIGHT,
+    ]
+
+    if window_title:
+        tmux_cmd.extend(["-T", window_title])
+
+    tmux_cmd.extend(["-E", command])
+    return tmux_cmd
 
 
 def launch_interactive(
@@ -12,16 +45,15 @@ def launch_interactive(
     prefer_tmux: bool = True,
     wait: bool = False,
 ) -> str | tuple[str, int]:
-    """Launch an interactive command in a new terminal window.
+    """Launch an interactive command in a tmux popup.
 
-    Automatically detects environment and chooses appropriate method:
-    - If in tmux session: creates new tmux window
-    - Otherwise: launches xterm window
+    The launcher deliberately avoids external terminal fallbacks so interactive
+    approval flows stay inside the current tmux session.
 
     Args:
         command: The command to execute
         window_title: Optional title for the window
-        prefer_tmux: Whether to prefer tmux over xterm when both available
+        prefer_tmux: Retained for API compatibility; must be True
         wait: Whether to wait for the command to complete before returning
 
     Returns:
@@ -29,83 +61,40 @@ def launch_interactive(
         If wait=False: status message string describing what was launched
 
     Raises:
-        RuntimeError: If neither tmux nor xterm is available
+        RuntimeError: If no tmux client is available
     """
-    in_tmux = bool(os.environ.get("TMUX"))
+    if not prefer_tmux:
+        raise RuntimeError(
+            "External terminal launch is disabled; interactive commands require "
+            "a reachable tmux client."
+        )
 
-    if in_tmux and prefer_tmux:
-        if wait:
-            unique_id = str(uuid.uuid4())[:8]
-            channel = f"wait-{unique_id}"
+    if not _tmux_client_available():
+        raise RuntimeError(
+            "Interactive terminal launch requires a reachable tmux client."
+        )
 
-            sync_command = f"{command}; tmux wait-for -S {channel}"
-            tmux_cmd = ["tmux", "new-window", sync_command]
-
-            current_window = subprocess.check_output(
-                ["tmux", "display-message", "-p", "#{window_index}"], text=True
-            ).strip()
-
-            subprocess.run(tmux_cmd, check=True)
-            print(f"Waiting for user input from {window_title or 'tmux window'}...")
-
-            subprocess.run(["tmux", "wait-for", channel], check=True)
-
-            if current_window:
-                with contextlib.suppress(subprocess.CalledProcessError):
-                    subprocess.run(
-                        ["tmux", "select-window", "-t", current_window], check=True
-                    )
-
-            return f"Completed in tmux window: {command}", 0
-        else:
-            tmux_cmd = ["tmux", "new-window"]
-
-            if window_title:
-                tmux_cmd.extend(["-n", window_title])
-
-            tmux_cmd.append(command)
-
-            subprocess.run(tmux_cmd, check=True)
-            return f"Launched in new tmux window: {command}"
-
+    tmux_cmd = _tmux_popup_command(command, window_title)
+    if wait:
+        print(f"Waiting for user input from {window_title or 'tmux popup'}...")
+        subprocess.run(tmux_cmd, check=True)
+        return f"Completed in tmux popup: {command}", 0
     else:
-        if wait:
-            xterm_cmd = ["xterm"]
-
-            if window_title:
-                xterm_cmd.extend(["-title", window_title])
-
-            xterm_cmd.extend(["-e", command])
-
-            print(f"Waiting for user input from {window_title or 'xterm window'}...")
-            # Let FileNotFoundError propagate if xterm is not installed
-            result = subprocess.run(xterm_cmd)
-            return f"Completed in xterm: {command}", result.returncode
-        else:
-            xterm_cmd = ["xterm"]
-
-            if window_title:
-                xterm_cmd.extend(["-title", window_title])
-
-            xterm_cmd.extend(["-e", command])
-
-            # Let FileNotFoundError propagate if xterm is not installed
-            subprocess.Popen(xterm_cmd)
-            return f"Launched in xterm: {command}"
+        subprocess.Popen(tmux_cmd)
+        return f"Launched in tmux popup: {command}"
 
 
 def check_interactive_support() -> dict:
     """Check what interactive terminal options are available.
 
     Returns:
-        Dict with availability status of tmux and xterm
+        Dict with availability status of tmux popup support
     """
     result = {
         "tmux_session": bool(os.environ.get("TMUX")),
         "tmux_available": False,
+        "tmux_popup_available": False,
         "tmux_error": None,
-        "xterm_available": False,
-        "xterm_error": None,
     }
 
     try:
@@ -116,12 +105,6 @@ def check_interactive_support() -> dict:
     except subprocess.CalledProcessError as e:
         result["tmux_error"] = str(e)
 
-    try:
-        subprocess.run(["which", "xterm"], capture_output=True, check=True)
-        result["xterm_available"] = True
-    except FileNotFoundError:
-        pass
-    except subprocess.CalledProcessError as e:
-        result["xterm_error"] = str(e)
+    result["tmux_popup_available"] = _tmux_client_available()
 
     return result
